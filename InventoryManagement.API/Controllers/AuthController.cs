@@ -7,8 +7,27 @@ namespace InventoryManagement.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController(UserManager<ApplicationUser> userManager, TokenService tokenService) : ControllerBase
+public class AuthController(
+    UserManager<ApplicationUser> userManager,
+    RoleManager<IdentityRole> roleManager, 
+    TokenService tokenService) : ControllerBase
 {
+    [HttpPost("seed-roles")]
+    public async Task<IActionResult> SeedRoles()
+    {
+        var roles = new [] { "Admin", "Manager", "WarehouseStaff", "Auditor" };
+
+        foreach (var role in roles)
+        {
+            if (!await roleManager.RoleExistsAsync(role))
+            {
+                await roleManager.CreateAsync(new IdentityRole(role));
+            }
+        }
+
+        return Ok("Enterprise Roles seeded successfully!");
+    }
+
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
@@ -35,5 +54,15 @@ public class AuthController(UserManager<ApplicationUser> userManager, TokenServi
 
         var token = await tokenService.GenerateAccessTokenAsync(user);
         return Ok(new { Token = token });
+    }
+
+    [HttpPost("assign-role")]
+    public async Task<IActionResult> AssignRole(string email, string roleName)
+    {
+        var user = await userManager.FindByEmailAsync(email);
+        if (user == null) return NotFound("User not found.");
+
+        await userManager.AddToRoleAsync(user, roleName);
+        return Ok($"User {email} assigned to role {roleName}.");
     }
 }
