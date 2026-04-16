@@ -1527,7 +1527,8 @@
           "FluentValidation": "12.1.1",
           "FluentValidation.DependencyInjectionExtensions": "12.1.1",
           "InventoryManagement.Domain": "1.0.0",
-          "MediatR": "14.1.0"
+          "MediatR": "14.1.0",
+          "Microsoft.EntityFrameworkCore": "10.0.6"
         },
         "compile": {
           "bin/placeholder/InventoryManagement.Application.dll": {}
