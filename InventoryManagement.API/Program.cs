@@ -16,6 +16,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 builder.Services.AddScoped<InventoryManagement.API.Authentication.TokenService>();
 builder.Services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());
+builder.Services.AddScoped<ICurrentUserService, InventoryManagement.API.Services.CurrentUserService>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddIdentityCore<ApplicationUser>()

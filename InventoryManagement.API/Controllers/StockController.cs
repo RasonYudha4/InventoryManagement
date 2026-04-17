@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using InventoryManagement.API.Models;
+using InventoryManagement.Application.Features.Stock.Commands.DispatchStock;
 using InventoryManagement.Application.Features.Stock.Commands.ReceiveStock;
 using InventoryManagement.Application.Features.Stock.Queries.GetStockLevelsByLocation;
 using MediatR;
@@ -22,13 +23,12 @@ public class StockController(IMediator mediator) : ControllerBase
             return Unauthorized("User identity not found in token.");
 
         var command = new ReceiveStockCommand(
-            request.ProductId,
-            request.LocationId,
-            request.Quantity,
-            request.ReferenceNumber,
-            request.Notes,
-            userId
-        );
+        request.ProductId,
+        request.LocationId,
+        request.PurchaseOrderId,
+        request.Quantity,
+        request.Notes
+    );
 
         var transactionId = await mediator.Send(command);
 
@@ -43,5 +43,26 @@ public class StockController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(query);
 
         return Ok(result);
+    }
+
+    [Authorize(Roles = "Admin,Manager,WarehouseStaff")]
+    [HttpPost("dispatch")]
+    public async Task<IActionResult> DispatchStock([FromBody] DispatchStockRequest request)
+    {
+        var command = new DispatchStockCommand(
+            request.ProductId,
+            request.LocationId,
+            request.Quantity,
+            request.SalesOrderNumber,
+            request.Notes
+        );
+
+        var transactionId = await mediator.Send(command);
+
+        return Ok(new
+        {
+            Message = "Stock dispatched successfully.",
+            transactionId = transactionId
+        });
     }
 }

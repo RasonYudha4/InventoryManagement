@@ -6,24 +6,39 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InventoryManagement.Application.Features.Stock.Commands.ReceiveStock;
 
-public class ReceiveStockCommandHandler(IApplicationDbContext context) 
+public class ReceiveStockCommandHandler(
+    IApplicationDbContext context,
+    ICurrentUserService currentUserService) 
 : IRequestHandler<ReceiveStockCommand, Guid>
 {
     public async Task<Guid> Handle(ReceiveStockCommand request, CancellationToken cancellationToken)
     {
-        var productExists = await context.Products.AnyAsync(p => p.Id == request.ProductId, cancellationToken);
-        if (!productExists) throw new Exception($"Product with ID {request.ProductId} not found.");
+        var po = await context.PurchaseOrders
+            .Include(p => p.OrderLines)
+            .FirstOrDefaultAsync(p => p.Id == request.PurchaseOrderId, cancellationToken);
 
-        var locationExist = await context.Locations.AnyAsync(l => l.Id == request.LocationId, cancellationToken);
-        if (!locationExist) throw new Exception($"Location with ID {request.LocationId} not found.");
+        if (po == null)
+            throw new Exception("Purchase Order not found.");
+        
+        if (po.Status != PurchaseOrderStatus.Approved && po.Status != PurchaseOrderStatus.PartiallyReceived)
+            throw new Exception($"Cannot receive against this PO. Current status is {po.Status}.");
+
+        var poLine = po.OrderLines.FirstOrDefault(l => l.ProductId == request.ProductId);
+        if (poLine == null) 
+            throw new Exception("This product is not listed on this Purchase Order.");
+
+        var remainingToReceive = poLine.OrderedQuantity - poLine.ReceivedQuantity;
+        if (request.Quantity > remainingToReceive)
+            throw new Exception($"Over-receipt error! You ordered {poLine.OrderedQuantity}, already received {poLine.ReceivedQuantity}. You cannot receive {request.Quantity} more.");
+
+        var location = await context.Locations.FindAsync(new object[] { request.LocationId }, cancellationToken);
+        if (location == null) throw new Exception("Location not found.");
 
         var stockLevel = await context.StockLevels
             .FirstOrDefaultAsync(sl => 
                 sl.ProductId == request.ProductId &&
                 sl.LocationId == request.LocationId,
                 cancellationToken);
-
-        int quantityBefore = 0;
 
         if (stockLevel == null)
         {
@@ -36,12 +51,11 @@ public class ReceiveStockCommandHandler(IApplicationDbContext context)
             };
             context.StockLevels.Add(stockLevel);
         }
-        else
-        {
-            quantityBefore = stockLevel.Quantity;
-        }
+
+        int qtyBefore = stockLevel.Quantity;
 
         stockLevel.Quantity += request.Quantity;
+        stockLevel.UpdatedAt = DateTime.UtcNow;
 
         var transaction = new StockTransaction
         {
@@ -49,14 +63,20 @@ public class ReceiveStockCommandHandler(IApplicationDbContext context)
             LocationId = request.LocationId,
             Type = TransactionType.Receipt,
             Quantity = request.Quantity,
-            QuantityBefore = quantityBefore,
             QuantityAfter = stockLevel.Quantity,
-            ReferenceNumber = request.ReferenceNumber,
+            QuantityBefore = qtyBefore,
+            ReferenceNumber = po.PONumber,
             Notes = request.Notes,
-            PerformedBy = request.PerformedByUserId
+            PerformedBy = currentUserService.Email ?? "System"
         };
 
         context.StockTransactions.Add(transaction);
+
+        poLine.ReceivedQuantity += request.Quantity;
+
+        bool isFullyReceived = po.OrderLines.All(l => l.ReceivedQuantity >= l.OrderedQuantity);
+
+        po.Status = isFullyReceived ? PurchaseOrderStatus.Received : PurchaseOrderStatus.PartiallyReceived;
 
         await context.SaveChangesAsync(cancellationToken);
 

@@ -5,8 +5,7 @@ namespace InventoryManagement.Application.Features.Stock.Commands.ReceiveStock;
 public record ReceiveStockCommand(
     Guid ProductId,
     Guid LocationId,
-    int Quantity, 
-    string? ReferenceNumber,
-    string? Notes,
-    string PerformedByUserId
+    Guid PurchaseOrderId, // <-- NEW: Tie it to the PO!
+    int Quantity,
+    string? Notes
 ) : IRequest<Guid>;
