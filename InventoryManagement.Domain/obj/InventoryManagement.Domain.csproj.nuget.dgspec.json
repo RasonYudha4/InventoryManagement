@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\RASON YUDHAPATI\\Documents\\test_dotnet\\InventoryManagement\\InventoryManagement.Domain\\InventoryManagement.Domain.csproj": {}
+    "C:\\Users\\RASON YUDHAPATI\\Documents\\test_dotnet\\InventoryManagement - Backend\\InventoryManagement.Domain\\InventoryManagement.Domain.csproj": {}
   },
   "projects": {
-    "C:\\Users\\RASON YUDHAPATI\\Documents\\test_dotnet\\InventoryManagement\\InventoryManagement.Domain\\InventoryManagement.Domain.csproj": {
+    "C:\\Users\\RASON YUDHAPATI\\Documents\\test_dotnet\\InventoryManagement - Backend\\InventoryManagement.Domain\\InventoryManagement.Domain.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\RASON YUDHAPATI\\Documents\\test_dotnet\\InventoryManagement\\InventoryManagement.Domain\\InventoryManagement.Domain.csproj",
+        "projectUniqueName": "C:\\Users\\RASON YUDHAPATI\\Documents\\test_dotnet\\InventoryManagement - Backend\\InventoryManagement.Domain\\InventoryManagement.Domain.csproj",
         "projectName": "InventoryManagement.Domain",
-        "projectPath": "C:\\Users\\RASON YUDHAPATI\\Documents\\test_dotnet\\InventoryManagement\\InventoryManagement.Domain\\InventoryManagement.Domain.csproj",
+        "projectPath": "C:\\Users\\RASON YUDHAPATI\\Documents\\test_dotnet\\InventoryManagement - Backend\\InventoryManagement.Domain\\InventoryManagement.Domain.csproj",
         "packagesPath": "C:\\Users\\RASON YUDHAPATI\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\RASON YUDHAPATI\\Documents\\test_dotnet\\InventoryManagement\\InventoryManagement.Domain\\obj\\",
+        "outputPath": "C:\\Users\\RASON YUDHAPATI\\Documents\\test_dotnet\\InventoryManagement - Backend\\InventoryManagement.Domain\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\RASON YUDHAPATI\\AppData\\Roaming\\NuGet\\NuGet.Config"

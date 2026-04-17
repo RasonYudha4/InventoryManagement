@@ -1,0 +1,75 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@using InventoryManagement.UI.Models
+@using InventoryManagement.UI.Services
+@using Microsoft.AspNetCore.Authorization
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h3 class="card-title text-center mb-4">Warehouse Login</h3>
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger">@errorMessage</div>
+                    }
+
+                    <EditForm Model="@loginModel" OnValidSubmit="HandleLogin">
+                        <div class="mb-3">
+                            <label class="form-label">Email address</label>
+                            <InputText @bind-Value="loginModel.Email" class="form-control" type="email" required />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Password</label>
+                            <InputText @bind-Value="loginModel.Password" class="form-control" type="password" required />
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100" disabled="@isLoading">
+                            @if (isLoading)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                <span>Logging in...</span>
+                            }
+                            else
+                            {
+                                <span>Login</span>
+                            }
+                        </button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginRequest loginModel = new();
+    private string? errorMessage;
+    private bool isLoading;
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        // Call our service!
+        var error = await AuthService.LoginAsync(loginModel);
+
+        if (error == null)
+        {
+            // Success! Redirect to the home page or dashboard
+            NavigationManager.NavigateTo("/");
+        }
+        else
+        {
+            errorMessage = error;
+        }
+
+        isLoading = false;
+    }
+}

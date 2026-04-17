@@ -54,6 +54,16 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowBlazorWasm", policy =>
+    {
+        policy.WithOrigins("http://localhost:5295", "http://localhost:5295")
+            .AllowAnyMethod()
+            .AllowAnyHeader();
+    });
+});
+
 var app = builder.Build();
 
 app.UseMiddleware<InventoryManagement.API.Middleware.ExceptionHandlingMiddleware>();
@@ -65,6 +75,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors("AllowBlazorWasm");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

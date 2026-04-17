@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "oI75X41jHw0=",
+  "dgSpecHash": "b1SZWb0/4oA=",
   "success": true,
-  "projectFilePath": "C:\\Users\\RASON YUDHAPATI\\Documents\\test_dotnet\\InventoryManagement\\InventoryManagement.Infrastructure\\InventoryManagement.Infrastructure.csproj",
+  "projectFilePath": "C:\\Users\\RASON YUDHAPATI\\Documents\\test_dotnet\\InventoryManagement - Backend\\InventoryManagement.Infrastructure\\InventoryManagement.Infrastructure.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\RASON YUDHAPATI\\.nuget\\packages\\automapper\\16.1.1\\automapper.16.1.1.nupkg.sha512",
     "C:\\Users\\RASON YUDHAPATI\\.nuget\\packages\\automapper.extensions.microsoft.dependencyinjection\\12.0.1\\automapper.extensions.microsoft.dependencyinjection.12.0.1.nupkg.sha512",
@@ -90,9 +90,9 @@
       "code": "NU1608",
       "level": "Warning",
       "message": "Detected package version outside of dependency constraint: AutoMapper.Extensions.Microsoft.DependencyInjection 12.0.1 requires AutoMapper (= 12.0.1) but version AutoMapper 16.1.1 was resolved.",
-      "projectPath": "C:\\Users\\RASON YUDHAPATI\\Documents\\test_dotnet\\InventoryManagement\\InventoryManagement.Infrastructure\\InventoryManagement.Infrastructure.csproj",
+      "projectPath": "C:\\Users\\RASON YUDHAPATI\\Documents\\test_dotnet\\InventoryManagement - Backend\\InventoryManagement.Infrastructure\\InventoryManagement.Infrastructure.csproj",
       "warningLevel": 1,
-      "filePath": "C:\\Users\\RASON YUDHAPATI\\Documents\\test_dotnet\\InventoryManagement\\InventoryManagement.Infrastructure\\InventoryManagement.Infrastructure.csproj",
+      "filePath": "C:\\Users\\RASON YUDHAPATI\\Documents\\test_dotnet\\InventoryManagement - Backend\\InventoryManagement.Infrastructure\\InventoryManagement.Infrastructure.csproj",
       "libraryId": "AutoMapper",
       "targetGraphs": [
         "net10.0"
