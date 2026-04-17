@@ -37,5 +37,6 @@ public class AuthService(
     public async Task LogoutAsync()
     {
         await localStorage.RemoveItemAsync("authToken");
+        ((CustomAuthStateProvider)authStateProvider).NotifyUserLogout();
     }
 }
