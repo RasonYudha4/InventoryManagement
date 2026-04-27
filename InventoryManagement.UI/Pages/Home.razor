@@ -1,24 +1,63 @@
 ﻿@page "/"
-@attribute [Authorize] 
-<PageTitle>Warehouse Dashboard</PageTitle>
+@using InventoryManagement.UI.Models
+@using InventoryManagement.UI.Services
+@using InventoryManagement.UI.Services.Interfaces
+@inject IStockService StockService
 
-<h1>Welcome to the Warehouse Dashboard</h1>
-<hr />
+<PageTitle>Inventory Dashboard</PageTitle>
 
-<div class="row">
-    <div class="col-md-4">
-        <div class="card text-white bg-primary mb-3">
-            <div class="card-body">
-                <h5 class="card-title">Total Active Products</h5>
-                <p class="card-text display-4">142</p> </div>
+<div class="container mt-4">
+    <h2 class="mb-4">Warehouse Overview</h2>
+
+    <div class="card shadow-sm border-danger">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0">🚨 Low Stock Alerts</h5>
         </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card text-white bg-danger mb-3">
-            <div class="card-body">
-                <h5 class="card-title">Low Stock Alerts</h5>
-                <p class="card-text display-4">3</p> 
-            </div>
+        <div class="card-body">
+            @if (_isLoading)
+            {
+                <p><em>Loading live data from Azure...</em></p>
+            }
+            else if (!_lowStockItems.Any())
+            {
+                <div class="alert alert-success">All inventory levels are looking good!</div>
+            }
+            else
+            {
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>SKU</th>
+                            <th>Product Name</th>
+                            <th>Current Qty</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _lowStockItems)
+                        {
+                            <tr>
+                                <td><strong>@item.SKU</strong></td>
+                                <td>@item.Name</td>
+                                <td>@item.ReorderQuantity</td>
+                                <td><span class="badge bg-warning text-dark">Needs Reorder</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
         </div>
     </div>
 </div>
+
+@code {
+    private List<ProductDto> _lowStockItems = new();
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // This fires the second the page loads
+        _lowStockItems = await StockService.GetLowStockItemsAsync();
+        _isLoading = false;
+    }
+}

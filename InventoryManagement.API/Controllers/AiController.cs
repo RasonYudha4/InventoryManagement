@@ -33,7 +33,11 @@ public class AiController : ControllerBase
         catch (Exception ex)
         {
             // Print the massive, detailed error to your VS Code terminal in red
-            Console.WriteLine(ex.ToString()); 
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("\n=== AI CRASH REPORT ===");
+            Console.WriteLine(ex.ToString());
+            Console.WriteLine("=======================\n");
+            Console.ResetColor();
             
             // Send the Inner Exception to the Swagger UI
             string innerError = ex.InnerException != null ? ex.InnerException.Message : "No inner exception";

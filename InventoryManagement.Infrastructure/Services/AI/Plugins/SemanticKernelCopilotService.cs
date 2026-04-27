@@ -2,9 +2,10 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using Microsoft.Extensions.Configuration;
-using InventoryManagement.Application.Interfaces;
 using InventoryManagement.Infrastructure.Persistence;
 using InventoryManagement.Infrastructure.Services.AI.Plugins;
+using OpenAI;
+using System.ClientModel;
 
 namespace InventoryManagement.Infrastructure.Services.AI;
 
@@ -12,22 +13,23 @@ public class SemanticKernelCopilotService : IAiCopilotService
 {
     private readonly Kernel _kernel;
     private readonly IChatCompletionService _chatCompletionService;
+    private readonly ChatHistory _chatHistory = new ChatHistory("You are a helpful inventory management assistant. You answer questions about warehouse stock levels using the database tools provided.");
 
     public SemanticKernelCopilotService(IConfiguration config, ApplicationDbContext context)
     {
-        // 1. Pull the keys from your appsettings.Development.json
-        var endpoint = config["LocalAi:Endpoint"]!;
-        var modelId = config["LocalAi:ModelId"]!;
+       var endpoint = config["GrokAi:Endpoint"] ?? throw new InvalidOperationException("HF Endpoint missing");
+        var modelId = config["GrokAi:ModelId"] ?? throw new InvalidOperationException("HF ModelId missing");
+        var apiKey = config["GrokAi:ApiKey"] ?? throw new InvalidOperationException("HF ApiKey missing");
 
-        // 2. Build the AI Brain
         var builder = Kernel.CreateBuilder();
         
-        // 3. Give the AI Brain access to your C# Database functions!
-        var customHttpClient = new HttpClient { BaseAddress = new Uri(endpoint) };
-        builder.AddOpenAIChatCompletion(
-            modelId: modelId,
-            apiKey: "ollama", 
-            httpClient: customHttpClient);
+        var openAIClient = new OpenAIClient(
+            new ApiKeyCredential(apiKey), 
+            new OpenAIClientOptions { Endpoint = new Uri(endpoint) }
+        );
+        
+        builder.AddOpenAIChatCompletion(modelId, openAIClient);
+        
         builder.Plugins.AddFromObject(new WarehousePlugin(context));
 
         _kernel = builder.Build();
@@ -36,22 +38,26 @@ public class SemanticKernelCopilotService : IAiCopilotService
 
     public async Task<string> AskWarehouseQuestionAsync(string userPrompt, string userId)
     {
-        // 1. Set the AI's personality
-        var history = new ChatHistory("You are an expert warehouse management AI. You help users query their inventory safely. Be concise, professional, and helpful.");
-        
-        // 2. Add the user's question
-        history.AddUserMessage(userPrompt);
+        // 1. Add the user's question to the chat history
+        _chatHistory.AddUserMessage(userPrompt);
 
-        // 3. CRITICAL: Tell the AI it has permission to trigger your C# Plugin!
-        var executionSettings = new OpenAIPromptExecutionSettings 
+        // THE FIX: Explicitly authorize Semantic Kernel to send your plugins to Groq!
+        var executionSettings = new OpenAIPromptExecutionSettings
         {
             ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions
         };
 
-        // 4. Send it to Azure and wait for the response
-        var result = await _chatCompletionService.GetChatMessageContentAsync(history, executionSettings, _kernel);
+        // 2. Pass the settings into the chat completion service
+        var response = await _chatCompletionService.GetChatMessageContentAsync(
+            _chatHistory, 
+            executionSettings, // <-- Pass the authorization here!
+            _kernel            // <-- Make sure the kernel is passed so it can execute the C# code
+        );
+
+        // 3. Save the AI's response to history and return it
+        _chatHistory.AddAssistantMessage(response.Content ?? "");
         
-        return result.Content ?? "I'm sorry, I couldn't process that request.";
+        return response.Content ?? "I couldn't generate an answer.";
     }
 
     public Task<string> ProcessVoiceCommandAsync(byte[] audioStream)

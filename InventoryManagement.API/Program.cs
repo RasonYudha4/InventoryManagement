@@ -5,6 +5,7 @@ using InventoryManagement.Application.Interfaces;
 using InventoryManagement.Infrastructure.Identity;
 using InventoryManagement.Infrastructure.Persistence;
 using InventoryManagement.Infrastructure.Services;
+using InventoryManagement.Infrastructure.Services.AI;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -21,7 +22,8 @@ builder.Services.AddScoped<InventoryManagement.API.Authentication.TokenService>(
 builder.Services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());
 builder.Services.AddScoped<ICurrentUserService, InventoryManagement.API.Services.CurrentUserService>();
 builder.Services.AddScoped<IEmailService, MockEmailService>();
-builder.Services.AddScoped<IAiCopilotService, InventoryManagement.Infrastructure.Services.AI.SemanticKernelCopilotService>();
+builder.Services.AddScoped<IAiCopilotService, SemanticKernelCopilotService>();
+builder.Services.AddScoped<InventoryForecastingService>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddIdentityCore<ApplicationUser>()
@@ -66,6 +68,25 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+        var config = services.GetRequiredService<IConfiguration>();
+
+        // Execute the seeder to populate Azure SQL
+        await RoleSeeder.SeedAsync(roleManager, userManager, config);
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred while seeding the database.");
+    }
+}
 
 app.UseMiddleware<InventoryManagement.API.Middleware.ExceptionHandlingMiddleware>();
 

@@ -1,0 +1,84 @@
+@page "/forecast"
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h3 class="card-title">ML.NET Inventory Forecasting</h3>
+            
+            <div class="d-flex gap-2 mb-4">
+                <input @bind="searchSku" class="form-control w-25" placeholder="Enter SKU (e.g. LAPTOP-01)" />
+                <button @onclick="LoadForecast" class="btn btn-primary" disabled="@isLoading">
+                    @(isLoading ? "Calculating..." : "Generate AI Forecast")
+                </button>
+            </div>
+
+            @if (forecastResult != null)
+            {
+                <div class="alert alert-info">
+                    <strong>Total Units Needed Next 7 Days:</strong> @forecastResult.TotalUnitsNeededNext7Days
+                </div>
+            }
+
+            <div style="height: 400px; width: 100%;">
+                <canvas id="forecastChart"></canvas>
+            </div>
+            
+            @if (errorMessage != null)
+            {
+                <div class="alert alert-danger mt-3">@errorMessage</div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private string searchSku = "LAPTOP-01";
+    private bool isLoading = false;
+    private string? errorMessage;
+    private ForecastDto? forecastResult;
+
+    private async Task LoadForecast()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            forecastResult = await Http.GetFromJsonAsync<ForecastDto>($"api/Forecast/predict/{searchSku}");
+            
+            if (forecastResult != null && forecastResult.DailyBreakdown.Any())
+            {
+                // Generate temporary labels for the 7 days since the API didn't send them
+                var labels = Enumerable.Range(1, 7).Select(i => $"Day {i}").ToList();
+                
+                // Pass the data to JavaScript
+                // We pass an empty list for HistoricalData for now since the JSON only has the forecast
+                await JS.InvokeVoidAsync(
+                    "renderForecastChart", 
+                    "forecastChart", 
+                    labels, 
+                    new List<float>(), // Empty History
+                    forecastResult.DailyBreakdown
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Mapping Error: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    public class ForecastDto
+    {
+        public string Sku { get; set; } = "";
+        public int TotalUnitsNeededNext7Days { get; set; }
+        // Match the JSON property name exactly!
+        public List<float> DailyBreakdown { get; set; } = new();
+    }
+}

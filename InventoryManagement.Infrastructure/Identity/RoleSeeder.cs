@@ -8,32 +8,44 @@ public static class RoleSeeder
     public static readonly string[] Roles = ["Admin", "Operator", "Supervisor"];
 
     public static async Task SeedAsync(
-        RoleManager<IdentityRole> roleManager,
-        UserManager<ApplicationUser> userManager,
-        IConfiguration config)
+    RoleManager<IdentityRole> roleManager,
+    UserManager<ApplicationUser> userManager,
+    IConfiguration config)
     {
-        // Ensure all roles exist
+        // 1. Ensure all roles exist
         foreach (var role in Roles)
         {
             if (!await roleManager.RoleExistsAsync(role))
                 await roleManager.CreateAsync(new IdentityRole(role));
         }
 
-        // Seed a default admin from appsettings (never hard-code credentials)
-        var adminEmail = config["Seed:AdminEmail"] ?? "admin@inventory.local";
-        if (await userManager.FindByEmailAsync(adminEmail) is null)
+        // 2. Helper function to create synthetic users
+        async Task EnsureUserExists(string email, string first, string last, string role, string dept)
         {
-            var admin = new ApplicationUser
+            if (await userManager.FindByEmailAsync(email) is null)
             {
-                UserName = adminEmail,
-                Email = adminEmail,
-                FirstName = "System",
-                LastName = "Admin",
-                EmailConfirmed = true
-            };
-            var result = await userManager.CreateAsync(admin, config["Seed:AdminPassword"]!);
-            if (result.Succeeded)
-                await userManager.AddToRoleAsync(admin, "Admin");
+                var user = new ApplicationUser
+                {
+                    UserName = email,
+                    Email = email,
+                    FirstName = first,
+                    LastName = last,
+                    Department = dept,
+                    EmailConfirmed = true
+                };
+
+                // Use a default password from config or a safe fallback
+                var password = config["Seed:DefaultPassword"] ?? "P@ssword123!";
+                var result = await userManager.CreateAsync(user, password);
+                
+                if (result.Succeeded)
+                    await userManager.AddToRoleAsync(user, role);
+            }
         }
+
+        // 3. Generate Synthetic Data
+        await EnsureUserExists("admin@inventory.local", "System", "Admin", "Admin", "IT");
+        await EnsureUserExists("operator@inventory.local", "Budi", "Santoso", "Operator", "Warehouse");
+        await EnsureUserExists("supervisor@inventory.local", "Siti", "Aminah", "Supervisor", "Logistics");
     }
 }
