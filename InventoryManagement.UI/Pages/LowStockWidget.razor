@@ -1,0 +1,79 @@
+@page "/low-stock"
+@using InventoryManagement.UI.Models
+@using InventoryManagement.UI.Services.Interfaces
+@inject IStockService StockService
+
+<div class="card shadow-sm border-warning">
+    <div class="card-header bg-warning text-dark font-weight-bold">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i> Low Stock Alerts
+    </div>
+    <div class="card-body p-0">
+        @if (isLoading)
+        {
+            <div class="p-4 text-center">
+                <div class="spinner-border text-warning" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        }
+        else if (lowStockItems == null || !lowStockItems.Any())
+        {
+            <div class="p-4 text-center text-muted">
+                <i class="bi bi-check-circle-fill text-success fs-4 d-block mb-2"></i>
+                All stock levels are healthy!
+            </div>
+        }
+        else
+        {
+            <table class="table table-hover table-striped mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Product Name</th>
+                        <th class="text-center">Current Stock</th>
+                        <th class="text-center">Reorder Point</th>
+                        <th class="text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in lowStockItems)
+                    {
+                        <tr>
+                            <td class="fw-bold">@item.ProductName</td>
+                            <td class="text-center text-danger fw-bold">@item.CurrentQuantity</td>
+                            <td class="text-center">@item.ReorderPoint</td>
+                            <td class="text-center">
+                                @if (item.CurrentQuantity == 0)
+                                {
+                                    <span class="badge bg-danger">Out of Stock</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-warning text-dark">Order Soon</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@code {
+    private List<LowStockItemDto>? lowStockItems;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // This calls your service, which triggers the JwtInterceptor, 
+            // hits the API, and maps the JSON to your UI record!
+            lowStockItems = await StockService.GetLowStockItemsAsync();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

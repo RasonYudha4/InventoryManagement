@@ -37,9 +37,9 @@
                         @foreach (var item in _lowStockItems)
                         {
                             <tr>
-                                <td><strong>@item.SKU</strong></td>
-                                <td>@item.Name</td>
-                                <td>@item.ReorderQuantity</td>
+                                <td><strong>@item.ProductName</strong></td>
+                                <td>@item.CurrentQuantity</td>
+                                <td>@item.ReorderPoint</td>
                                 <td><span class="badge bg-warning text-dark">Needs Reorder</span></td>
                             </tr>
                         }
@@ -51,7 +51,7 @@
 </div>
 
 @code {
-    private List<ProductDto> _lowStockItems = new();
+    private List<LowStockItemDto> _lowStockItems = new();
     private bool _isLoading = true;
 
     protected override async Task OnInitializedAsync()

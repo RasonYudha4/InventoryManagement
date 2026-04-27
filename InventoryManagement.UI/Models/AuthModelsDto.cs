@@ -6,7 +6,9 @@ public class LoginRequest
     public string Password { get; set; } = string.Empty;
 }
 
-public class LoginResponse
+public class AuthResponse
 {
-    public string Token { get; set; } = string.Empty;
+    public bool IsSuccessful { get; set; }
+    public string? Token { get; set; }
+    public string? ErrorMessage { get; set; }
 }

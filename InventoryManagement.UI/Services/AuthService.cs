@@ -21,7 +21,7 @@ public class AuthService(
         }
 
         // 2. Parse the successful response
-        var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
+        var result = await response.Content.ReadFromJsonAsync<AuthResponse>();
 
         if (result != null && !string.IsNullOrEmpty(result.Token))
         {

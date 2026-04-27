@@ -1,6 +1,6 @@
 using MediatR;
 
-namespace InventoryManagement.Application.Features.Warehouses.Commands.CreateWarehouse;
+namespace InventoryManagement.Application.Features.Warehouses.Commands;
 
 public record CreateWarehouseCommand(
     string Code,

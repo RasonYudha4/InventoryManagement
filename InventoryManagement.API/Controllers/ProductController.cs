@@ -1,3 +1,4 @@
+using InventoryManagement.API.Models.Requests;
 using InventoryManagement.Application.Features.Products.Commands.CreateProduct;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -9,23 +10,30 @@ namespace InventoryManagement.API.Controllers;
 [Route("api/[controller]")]
 public class ProductController(IMediator mediator) : ControllerBase
 {
-    // Only Admins and Managers can add new products to the catalog
     [Authorize(Roles = "Admin,Manager")]
     [HttpPost]
-    public async Task<IActionResult> CreateProduct([FromBody] CreateProductCommand command)
+    public async Task<IActionResult> CreateProduct([FromBody] CreateProductRequest request)
     {
-        // MediatR takes the body, validates the pricing rules, and saves to the DB
+        var command = new CreateProductCommand(
+            request.SKU,
+            request.Name,
+            request.Description,
+            request.UnitCost,
+            request.SellingPrice,
+            request.ReorderPoint,
+            request.ReorderQuantity,
+            request.CategoryId,
+            request.SupplierId
+        );
+
         var productId = await mediator.Send(command);
-        
         return CreatedAtAction(nameof(GetProductById), new { id = productId }, new { Id = productId });
     }
 
-    // Everyone logged into the system can view products
-    [Authorize]
+    [Authorize(Roles = "Admin,Manager,WarehouseStaff,Auditor")]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetProductById(Guid id)
     {
-        // TODO: We will build the GetProductByIdQuery next!
         return Ok($"Product {id} retrieved.");
     }
 }

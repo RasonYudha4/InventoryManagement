@@ -1,3 +1,4 @@
+using InventoryManagement.Application.Features.Stock.Queries;
 using InventoryManagement.Application.Interfaces;
 using MediatR;
 using Microsoft.EntityFrameworkCore;

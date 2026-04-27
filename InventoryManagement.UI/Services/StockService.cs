@@ -1,31 +1,39 @@
 using System.Net.Http.Json;
 using InventoryManagement.UI.Models;
+using InventoryManagement.UI.Models.Requests;
 using InventoryManagement.UI.Services.Interfaces;
 
 namespace InventoryManagement.UI.Services;
 
-public class StockService : IStockService
+public class StockService(HttpClient http) : IStockService
 {
-    private readonly HttpClient _http;
-
-    public StockService(HttpClient http)
+    public async Task<List<LowStockItemDto>> GetLowStockItemsAsync()
     {
-        _http = http;
+        var items = await http.GetFromJsonAsync<List<LowStockItemDto>>("api/stock/low");
+        return items ?? [];
     }
 
-    public async Task<List<ProductDto>> GetLowStockItemsAsync()
+    public async Task<List<StockLevelDto>> GetStockByLocationAsync(Guid locationId)
     {
-        try
-        {
-            // Make sure this matches the exact route of your API controller!
-            // Assuming it's something like GET /api/stock/low
-            var items = await _http.GetFromJsonAsync<List<ProductDto>>("api/stock/low");
-            return items ?? new List<ProductDto>();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error fetching stock: {ex.Message}");
-            return new List<ProductDto>();
-        }
+        var items = await http.GetFromJsonAsync<List<StockLevelDto>>($"api/stock/location/{locationId}");
+        return items ?? [];
+    }
+
+    public async Task<Guid> ReceiveStockAsync(ReceiveStockRequest request)
+    {
+        var response = await http.PostAsJsonAsync("api/stock/receive", request);
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<ApiTransactionResponse>();
+        return result!.TransactionId;
+    }
+
+    public async Task<Guid> DispatchStockAsync(DispatchStockRequest request)
+    {
+        var response = await http.PostAsJsonAsync("api/stock/dispatch", request);
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<ApiTransactionResponse>();
+        return result!.TransactionId;
     }
 }
