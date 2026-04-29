@@ -3,6 +3,7 @@
 @using InventoryManagement.UI.Models.Requests
 @attribute [Authorize(Roles = "Admin,Manager,WarehouseStaff")]
 @inject IStockService StockService
+@inject IProductService ProductService
 @inject IWarehouseService WarehouseService
 
 <PageTitle>Dispatch Stock — Inventory</PageTitle>
@@ -34,8 +35,14 @@
 
         <div class="form-grid">
             <div class="form-group">
-                <label class="form-label">Product ID <span class="required">*</span></label>
-                <InputText class="form-input" @bind-Value="_model.ProductId" placeholder="Product GUID" />
+                <label class="form-label">Product <span class="required">*</span></label>
+                <select class="form-select" @bind="_model.ProductId" disabled="@_loadingDropdowns">
+                    <option value="">— Select product —</option>
+                    @foreach (var p in _products)
+                    {
+                        <option value="@p.Id">@p.Name (@p.SKU)</option>
+                    }
+                </select>
                 <ValidationMessage For="() => _model.ProductId" />
             </div>
 
@@ -99,9 +106,11 @@
 @code {
     private DispatchStockFormModel _model = new();
     private List<WarehouseDto> _warehouses = [];
+    private List<ProductSummaryDto> _products = [];
     private List<LocationDto> _locations = [];
 
     private bool _loadingWarehouses = true;
+    private bool _loadingDropdowns = true;
     private bool _submitting;
     private string? _error;
     private string? _successMessage;
@@ -111,6 +120,7 @@
         try
         {
             _warehouses = await WarehouseService.GetAllWarehousesAsync();
+            _products = await ProductService.GetAllProductsAsync();
         }
         catch (Exception ex)
         {
@@ -119,6 +129,7 @@
         finally
         {
             _loadingWarehouses = false;
+            _loadingDropdowns = false;
         }
     }
 
@@ -142,14 +153,11 @@
 
         try
         {
-            if (!Guid.TryParse(_model.ProductId, out var productId))
-                throw new Exception("Invalid Product ID format.");
-
             if (!Guid.TryParse(_model.LocationId, out var locationId))
                 throw new Exception("Please select a location.");
 
             var request = new DispatchStockRequest(
-                productId, locationId, _model.Quantity, _model.SalesOrderNumber, _model.Notes);
+                _model.ProductId, locationId, _model.Quantity, _model.SalesOrderNumber, _model.Notes);
 
             var transactionId = await StockService.DispatchStockAsync(request);
             _successMessage = $"Stock dispatched successfully. Transaction ID: {transactionId}";
@@ -173,7 +181,7 @@
 
     private class DispatchStockFormModel
     {
-        [Required] public string ProductId { get; set; } = string.Empty;
+        [Required] public Guid ProductId { get; set; }
         public string? SalesOrderNumber { get; set; }
         [Required] public string LocationId { get; set; } = string.Empty;
         [Range(1, int.MaxValue, ErrorMessage = "Quantity must be at least 1.")]

@@ -4,6 +4,7 @@
 @attribute [Authorize(Roles = "Admin,Manager")]
 @inject IPurchaseOrderService PurchaseOrderService
 @inject ISupplierService SupplierService
+@inject IProductService ProductService
 @inject NavigationManager Nav
 
 <PageTitle>New Purchase Order — Inventory</PageTitle>
@@ -107,10 +108,16 @@
             <h3 class="line-item-title">Add Line Item</h3>
             <div class="form-grid">
                 <div class="form-group">
-                    <label class="form-label">Product ID <span class="required">*</span></label>
-                    <InputText class="form-input" @bind-Value="_newItem.ProductId"
-                               placeholder="Product GUID" />
-                </div>
+                <label class="form-label">Product <span class="required">*</span></label>
+                <select class="form-select" @bind="_newItem.ProductId" disabled="@_loadingDropdowns">
+                    <option value="">— Select product —</option>
+                    @foreach (var p in _products)
+                    {
+                        <option value="@p.Id">@p.Name (@p.SKU)</option>
+                    }
+                </select>
+                <ValidationMessage For="() => _newItem.ProductId" />
+            </div>
 
                 <div class="form-group">
                     <label class="form-label">Quantity <span class="required">*</span></label>
@@ -163,21 +170,29 @@
     private string? _error;
     private string? _lineItemError;
     private List<SupplierSummaryDto> _suppliers = [];
+    private List<ProductSummaryDto> _products = [];
     private bool _loadingSuppliers = true;
+    private bool _loadingDropdowns = true;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            _suppliers = await SupplierService.GetAllSuppliersAsync();
+            var suppliersTask = SupplierService.GetAllSuppliersAsync();
+            var productsTask  = ProductService.GetAllProductsAsync();
+            await Task.WhenAll(suppliersTask, productsTask);
+
+            _suppliers = suppliersTask.Result;
+            _products  = productsTask.Result;
         }
         catch (Exception ex)
         {
-            _error = $"Failed to load suppliers: {ex.Message}";
+            _error = $"Failed to load form data: {ex.Message}";
         }
         finally
         {
             _loadingSuppliers = false;
+            _loadingDropdowns = false;
         }
     }
 
@@ -192,12 +207,6 @@
     private void AddItem()
     {
         _lineItemError = null;
-
-        if (!Guid.TryParse(_newItem.ProductId, out _))
-        {
-            _lineItemError = "Invalid Product ID format.";
-            return;
-        }
 
         if (_model.Items.Any(i => i.ProductId == _newItem.ProductId))
         {
@@ -231,8 +240,11 @@
             if (!_model.Items.Any())
                 throw new Exception("Please add at least one line item before creating the order.");
 
+            if (!Guid.TryParse(_model.SupplierId, out var supplierId))
+                throw new Exception("Please select a supplier.");
+
             var request = new CreatePurchaseOrderRequest(
-                _model.SupplierId,
+                supplierId,
                 _model.ExpectedDeliveryDate,
                 _model.Notes,
                 _model.Items.Select(i => new PurchaseOrderLineItemRequest(
@@ -254,7 +266,7 @@
 
     private class CreatePurchaseOrderFormModel
     {
-        [Required] public Guid SupplierId { get; set; }
+        [Required] public string SupplierId { get; set; } = string.Empty;
         public DateTime? ExpectedDeliveryDate { get; set; }
         public string? Notes { get; set; }
         public List<LineItemFormModel> Items { get; set; } = [];
