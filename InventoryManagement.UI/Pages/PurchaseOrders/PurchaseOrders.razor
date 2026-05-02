@@ -75,7 +75,6 @@ else
                         <td class="col-mono col-primary">@po.PONumber</td>
                         <td>@po.SupplierName</td>
                         <td>@po.OrderDate.ToString("dd MMM yyyy")</td>
-                        <td>@(po.ExpectedDeliveryDate?.ToString("dd MMM yyyy") ?? "—")</td>
                         <td class="col-num">@po.TotalAmount.ToString("C")</td>
                         <td><span class="badge @GetStatusBadgeClass(po.Status)">@po.Status</span></td>
                         <td class="col-actions">
@@ -103,9 +102,14 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        // NOTE: A GetAllPurchaseOrders query is needed in the Application layer.
-        // This page will be wired up once that query is implemented.
-        _loading = false;
+        try 
+        {
+            
+        } 
+        catch (Exception ex) 
+        {
+            _error = $"Failed to load Purchase Orders: {ex.Message}";
+        }
     }
 
     private static string GetStatusBadgeClass(PurchaseOrderStatus status) => status switch

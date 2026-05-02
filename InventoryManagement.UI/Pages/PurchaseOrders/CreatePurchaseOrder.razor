@@ -6,6 +6,7 @@
 @inject ISupplierService SupplierService
 @inject IProductService ProductService
 @inject NavigationManager Nav
+@inject ILogger<object> Logger
 
 <PageTitle>New Purchase Order — Inventory</PageTitle>
 
@@ -26,6 +27,18 @@
     </div>
 }
 
+@* Debug panel — remove before production *@
+@if (_debugLog.Any())
+{
+    <div class="alert-info" style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap;">
+        <strong>Debug Log:</strong>
+        @foreach (var entry in _debugLog)
+        {
+            <div>@entry</div>
+        }
+    </div>
+}
+
 <div class="form-card">
     <EditForm Model="_model" OnValidSubmit="HandleSubmit">
         <DataAnnotationsValidator />
@@ -42,11 +55,6 @@
                     }
                 </select>
                 <ValidationMessage For="() => _model.SupplierId" />
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Expected Delivery Date</label>
-                <InputDate class="form-input" @bind-Value="_model.ExpectedDeliveryDate" />
             </div>
 
             <div class="form-group form-group-full">
@@ -70,6 +78,7 @@
                             <th>Product ID</th>
                             <th class="col-num">Quantity</th>
                             <th class="col-num">Unit Cost</th>
+                            <th>Expected Delivery</th>
                             <th class="col-num">Line Total</th>
                             <th></th>
                         </tr>
@@ -83,6 +92,7 @@
                                 <td class="col-mono">@item.ProductId</td>
                                 <td class="col-num">@item.Quantity</td>
                                 <td class="col-num">@item.NegotiatedUnitCost.ToString("C")</td>
+                                <td>@(item.ExpectedDeliveryDate?.ToString("dd MMM yyyy") ?? "—")</td>
                                 <td class="col-num">@((item.Quantity * item.NegotiatedUnitCost).ToString("C"))</td>
                                 <td class="col-actions">
                                     <button type="button" class="btn-link btn-danger-text"
@@ -108,16 +118,15 @@
             <h3 class="line-item-title">Add Line Item</h3>
             <div class="form-grid">
                 <div class="form-group">
-                <label class="form-label">Product <span class="required">*</span></label>
-                <select class="form-select" @bind="_newItem.ProductId" disabled="@_loadingDropdowns">
-                    <option value="">— Select product —</option>
-                    @foreach (var p in _products)
-                    {
-                        <option value="@p.Id">@p.Name (@p.SKU)</option>
-                    }
-                </select>
-                <ValidationMessage For="() => _newItem.ProductId" />
-            </div>
+                    <label class="form-label">Product <span class="required">*</span></label>
+                    <select class="form-select" @bind="_newItem.ProductId" disabled="@_loadingDropdowns">
+                        <option value="">— Select product —</option>
+                        @foreach (var p in _products)
+                        {
+                            <option value="@p.Id">@p.Name (@p.SKU)</option>
+                        }
+                    </select>
+                </div>
 
                 <div class="form-group">
                     <label class="form-label">Quantity <span class="required">*</span></label>
@@ -131,6 +140,11 @@
                         <InputNumber class="form-input" @bind-Value="_newItem.NegotiatedUnitCost"
                                      min="0" step="0.01" />
                     </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Expected Delivery</label>
+                    <InputDate class="form-input" @bind-Value="_newItem.ExpectedDeliveryDate" />
                 </div>
 
                 <div class="form-group form-group-align-end">
@@ -149,7 +163,7 @@
 
         <div class="form-actions">
             <a href="/purchase-orders" class="btn-secondary">Cancel</a>
-            <button type="submit" class="btn-primary" disabled="@(_submitting || !_model.Items.Any())">
+            <button type="submit" class="btn-primary" disabled="@_submitting">
                 @if (_submitting)
                 {
                     <span class="spinner-sm"></span> <span>Creating Draft...</span>
@@ -173,9 +187,11 @@
     private List<ProductSummaryDto> _products = [];
     private bool _loadingSuppliers = true;
     private bool _loadingDropdowns = true;
+    private List<string> _debugLog = [];
 
     protected override async Task OnInitializedAsync()
     {
+        Log("OnInitializedAsync started.");
         try
         {
             var suppliersTask = SupplierService.GetAllSuppliersAsync();
@@ -184,15 +200,20 @@
 
             _suppliers = suppliersTask.Result;
             _products  = productsTask.Result;
+
+            Log($"Loaded {_suppliers.Count} supplier(s), {_products.Count} product(s).");
         }
         catch (Exception ex)
         {
             _error = $"Failed to load form data: {ex.Message}";
+            Log($"ERROR during init: {ex.Message}");
+            Logger.LogError(ex, "Failed to load PO form data.");
         }
         finally
         {
             _loadingSuppliers = false;
             _loadingDropdowns = false;
+            Log("Dropdowns unlocked.");
         }
     }
 
@@ -207,67 +228,124 @@
     private void AddItem()
     {
         _lineItemError = null;
+        Log($"AddItem called — ProductId='{_newItem.ProductId}', Qty={_newItem.Quantity}, Cost={_newItem.NegotiatedUnitCost}, CanAddItem={CanAddItem}");
+
+        if (!CanAddItem)
+        {
+            _lineItemError = "Please fill in all line item fields before adding.";
+            Log("AddItem blocked: CanAddItem is false.");
+            return;
+        }
 
         if (_model.Items.Any(i => i.ProductId == _newItem.ProductId))
         {
             _lineItemError = "This product is already in the order. Adjust the existing line instead.";
+            Log($"AddItem blocked: duplicate ProductId '{_newItem.ProductId}'.");
             return;
         }
 
         _model.Items.Add(new LineItemFormModel
         {
-            ProductId = _newItem.ProductId,
-            Quantity = _newItem.Quantity,
-            NegotiatedUnitCost = _newItem.NegotiatedUnitCost
+            ProductId            = _newItem.ProductId,
+            Quantity             = _newItem.Quantity,
+            NegotiatedUnitCost   = _newItem.NegotiatedUnitCost
         });
 
+        Log($"Item added. Total items now: {_model.Items.Count}. Estimated total: {_estimatedTotal:C}");
         _newItem = new();
     }
 
     private void RemoveItem(int index)
     {
+        Log($"RemoveItem called at index {index}. Items before: {_model.Items.Count}");
         if (index >= 0 && index < _model.Items.Count)
+        {
             _model.Items.RemoveAt(index);
+            Log($"Item removed. Items remaining: {_model.Items.Count}");
+        }
+        else
+        {
+            Log($"RemoveItem: index {index} out of range.");
+        }
     }
 
     private async Task HandleSubmit()
     {
         _submitting = true;
         _error = null;
+        _lineItemError = null;
+
+        Log($"HandleSubmit called. SupplierId='{_model.SupplierId}', Items={_model.Items.Count}, HasPartialInput={HasPartialInput}");
 
         try
         {
-            if (!_model.Items.Any())
-                throw new Exception("Please add at least one line item before creating the order.");
-
+            // Validate supplier
             if (!Guid.TryParse(_model.SupplierId, out var supplierId))
-                throw new Exception("Please select a supplier.");
+            {
+                _error = "Please select a supplier.";
+                _submitting = false;
+                return;
+            }
+
+            // Warn if sub-form has unsaved data
+            if (HasPartialInput)
+            {
+                _lineItemError = "You have an unsaved line item — click Add Line first, or clear the fields.";
+                _submitting = false;
+                return;
+            }
+
+            // Validate at least one line item exists
+            if (!_model.Items.Any())
+            {
+                _lineItemError = "Please add at least one line item before creating the order.";
+                _submitting = false;
+                return;
+            }
 
             var request = new CreatePurchaseOrderRequest(
                 supplierId,
-                _model.ExpectedDeliveryDate,
                 _model.Notes,
                 _model.Items.Select(i => new PurchaseOrderLineItemRequest(
                     Guid.Parse(i.ProductId),
                     i.Quantity,
-                    i.NegotiatedUnitCost
+                    i.NegotiatedUnitCost,
+                    i.ExpectedDeliveryDate
                 )).ToList()
             );
 
+            Log($"Submitting PO: supplier={supplierId}, lines={request.Items.Count}, total={_estimatedTotal:C}");
+            Logger.LogInformation("Creating PO draft for supplier {SupplierId} with {LineCount} line(s).", supplierId, request.Items.Count);
+
             var id = await PurchaseOrderService.CreateDraftAsync(request);
+            Log($"PO created successfully. ID={id}");
+
             Nav.NavigateTo($"/purchase-orders/{id}");
         }
         catch (Exception ex)
         {
             _error = $"Failed to create purchase order: {ex.Message}";
+            Log($"ERROR in HandleSubmit: {ex.Message}");
+            Logger.LogError(ex, "Failed to create PO draft.");
             _submitting = false;
         }
+    }
+
+    private bool HasPartialInput =>
+        !string.IsNullOrWhiteSpace(_newItem.ProductId) ||
+        _newItem.Quantity > 1 ||
+        _newItem.NegotiatedUnitCost > 0;
+
+    private void Log(string message)
+    {
+        var entry = $"[{DateTime.Now:HH:mm:ss.fff}] {message}";
+        _debugLog.Add(entry);
+        Logger.LogDebug(entry);
     }
 
     private class CreatePurchaseOrderFormModel
     {
         [Required] public string SupplierId { get; set; } = string.Empty;
-        public DateTime? ExpectedDeliveryDate { get; set; }
         public string? Notes { get; set; }
         public List<LineItemFormModel> Items { get; set; } = [];
     }
@@ -276,6 +354,7 @@
     {
         public string ProductId { get; set; } = string.Empty;
         public int Quantity { get; set; } = 1;
+        public DateTime? ExpectedDeliveryDate { get; set; }
         public decimal NegotiatedUnitCost { get; set; }
     }
 }

@@ -11,6 +11,8 @@ public class PurchaseOrderLine : BaseEntity
     public int ReceivedQuantity { get; set; }
     public decimal UnitCost { get; set; }
     public decimal TotalCost => OrderedQuantity * UnitCost;
+    public DateTime? ExpectedDeliveryDate { get; set; }
+
 
     // Navigation
     public Guid PurchaseOrderId { get; set; }

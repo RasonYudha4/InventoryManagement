@@ -45,7 +45,6 @@ public class CreatePurchaseOrderCommandHandler(IApplicationDbContext context)
             SupplierId = request.SupplierId,
             PONumber = poNumber,
             OrderDate = DateTime.UtcNow,
-            ExpectedDeliveryDate = request.ExpectedDeliveryDate,
             Notes = request.Notes,
             Status = PurchaseOrderStatus.Draft,
             TotalAmount = totalAmount,

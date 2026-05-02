@@ -12,14 +12,14 @@ public record PurchaseOrderLineDetailDto(
     int OrderedQuantity,
     int ReceivedQuantity,
     decimal UnitCost,
-    decimal TotalCost
+    decimal TotalCost,
+    DateTime? ExpectedDeliveryDate
 );
 
 public record PurchaseOrderDetailDto(
     Guid Id,
     string PONumber,
     DateTime OrderDate,
-    DateTime? ExpectedDeliveryDate,
     PurchaseOrderStatus Status,
     decimal TotalAmount,
     string? Notes,

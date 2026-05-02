@@ -6,9 +6,8 @@ namespace InventoryManagement.Domain.Entities;
 
 public class PurchaseOrder : BaseEntity
 {
-    public string PONumber { get; set; } = string.Empty; // e.g., "PO-20260415-001"
+    public string PONumber { get; set; } = string.Empty;
     public DateTime OrderDate { get; set; }
-    public DateTime? ExpectedDeliveryDate { get; set; }
     public PurchaseOrderStatus Status { get; set; } = PurchaseOrderStatus.Draft;
     
     public decimal TotalAmount { get; set; }

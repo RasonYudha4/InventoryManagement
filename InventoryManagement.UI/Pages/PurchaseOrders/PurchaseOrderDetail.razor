@@ -83,10 +83,6 @@ else if (_order is not null)
                     <dt>Order Date</dt>
                     <dd>@_order.OrderDate.ToString("dd MMM yyyy")</dd>
                 </div>
-                <div class="detail-row">
-                    <dt>Expected Delivery</dt>
-                    <dd>@(_order.ExpectedDeliveryDate?.ToString("dd MMM yyyy") ?? "Not specified")</dd>
-                </div>
                 @if (_order.Notes is not null)
                 {
                     <div class="detail-row">
@@ -145,6 +141,7 @@ else if (_order is not null)
                     <th class="col-num">Remaining</th>
                     <th class="col-num">Unit Cost</th>
                     <th class="col-num">Total</th>
+                    <th>Expected Delivery</th>
                 </tr>
             </thead>
             <tbody>
@@ -160,12 +157,13 @@ else if (_order is not null)
                         <td class="col-num @(remaining > 0 ? "col-warning" : "")">@remaining</td>
                         <td class="col-num">@line.UnitCost.ToString("C")</td>
                         <td class="col-num">@line.TotalCost.ToString("C")</td>
+                        <td>@(line.ExpectedDeliveryDate?.ToString("dd MMM yyyy") ?? "—")</td>
                     </tr>
                 }
             </tbody>
             <tfoot>
                 <tr class="table-footer">
-                    <td colspan="7" class="col-num">Total</td>
+                    <td colspan="8" class="col-num">Total</td>
                     <td class="col-num col-primary">@_order.TotalAmount.ToString("C")</td>
                 </tr>
             </tfoot>
