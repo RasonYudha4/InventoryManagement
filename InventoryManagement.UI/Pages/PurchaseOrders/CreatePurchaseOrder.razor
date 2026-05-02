@@ -6,7 +6,6 @@
 @inject ISupplierService SupplierService
 @inject IProductService ProductService
 @inject NavigationManager Nav
-@inject ILogger<object> Logger
 
 <PageTitle>New Purchase Order — Inventory</PageTitle>
 
@@ -191,7 +190,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        Log("OnInitializedAsync started.");
         try
         {
             var suppliersTask = SupplierService.GetAllSuppliersAsync();
@@ -201,19 +199,15 @@
             _suppliers = suppliersTask.Result;
             _products  = productsTask.Result;
 
-            Log($"Loaded {_suppliers.Count} supplier(s), {_products.Count} product(s).");
         }
         catch (Exception ex)
         {
             _error = $"Failed to load form data: {ex.Message}";
-            Log($"ERROR during init: {ex.Message}");
-            Logger.LogError(ex, "Failed to load PO form data.");
         }
         finally
         {
             _loadingSuppliers = false;
             _loadingDropdowns = false;
-            Log("Dropdowns unlocked.");
         }
     }
 
@@ -228,19 +222,16 @@
     private void AddItem()
     {
         _lineItemError = null;
-        Log($"AddItem called — ProductId='{_newItem.ProductId}', Qty={_newItem.Quantity}, Cost={_newItem.NegotiatedUnitCost}, CanAddItem={CanAddItem}");
 
         if (!CanAddItem)
         {
             _lineItemError = "Please fill in all line item fields before adding.";
-            Log("AddItem blocked: CanAddItem is false.");
             return;
         }
 
         if (_model.Items.Any(i => i.ProductId == _newItem.ProductId))
         {
             _lineItemError = "This product is already in the order. Adjust the existing line instead.";
-            Log($"AddItem blocked: duplicate ProductId '{_newItem.ProductId}'.");
             return;
         }
 
@@ -251,21 +242,14 @@
             NegotiatedUnitCost   = _newItem.NegotiatedUnitCost
         });
 
-        Log($"Item added. Total items now: {_model.Items.Count}. Estimated total: {_estimatedTotal:C}");
         _newItem = new();
     }
 
     private void RemoveItem(int index)
     {
-        Log($"RemoveItem called at index {index}. Items before: {_model.Items.Count}");
         if (index >= 0 && index < _model.Items.Count)
         {
             _model.Items.RemoveAt(index);
-            Log($"Item removed. Items remaining: {_model.Items.Count}");
-        }
-        else
-        {
-            Log($"RemoveItem: index {index} out of range.");
         }
     }
 
@@ -274,8 +258,6 @@
         _submitting = true;
         _error = null;
         _lineItemError = null;
-
-        Log($"HandleSubmit called. SupplierId='{_model.SupplierId}', Items={_model.Items.Count}, HasPartialInput={HasPartialInput}");
 
         try
         {
@@ -314,19 +296,14 @@
                 )).ToList()
             );
 
-            Log($"Submitting PO: supplier={supplierId}, lines={request.Items.Count}, total={_estimatedTotal:C}");
-            Logger.LogInformation("Creating PO draft for supplier {SupplierId} with {LineCount} line(s).", supplierId, request.Items.Count);
 
             var id = await PurchaseOrderService.CreateDraftAsync(request);
-            Log($"PO created successfully. ID={id}");
 
             Nav.NavigateTo($"/purchase-orders/{id}");
         }
         catch (Exception ex)
         {
             _error = $"Failed to create purchase order: {ex.Message}";
-            Log($"ERROR in HandleSubmit: {ex.Message}");
-            Logger.LogError(ex, "Failed to create PO draft.");
             _submitting = false;
         }
     }
@@ -335,13 +312,6 @@
         !string.IsNullOrWhiteSpace(_newItem.ProductId) ||
         _newItem.Quantity > 1 ||
         _newItem.NegotiatedUnitCost > 0;
-
-    private void Log(string message)
-    {
-        var entry = $"[{DateTime.Now:HH:mm:ss.fff}] {message}";
-        _debugLog.Add(entry);
-        Logger.LogDebug(entry);
-    }
 
     private class CreatePurchaseOrderFormModel
     {

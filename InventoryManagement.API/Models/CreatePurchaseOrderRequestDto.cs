@@ -3,12 +3,12 @@ namespace InventoryManagement.API.Models.Requests;
 public record PurchaseOrderLineItemRequest(
     Guid ProductId,
     int Quantity,
-    decimal NegotiatedUnitCost
+    decimal NegotiatedUnitCost,
+    DateTime? ExpectedDeliveryDate
 );
 
 public record CreatePurchaseOrderRequest(
     Guid SupplierId,
-    DateTime? ExpectedDeliveryDate,
     string? Notes,
     List<PurchaseOrderLineItemRequest> Items
 );

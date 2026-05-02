@@ -27,4 +27,10 @@ public class PurchaseOrderService(HttpClient http) : IPurchaseOrderService
         var result = await http.GetFromJsonAsync<PurchaseOrderDetailDto>($"api/purchaseorder/{id}");
         return result!;
     }
+
+    public async Task<List<PurchaseOrderSummaryDto>> GetAllPurchaseOrdersAsync()
+    {
+        var result = await http.GetFromJsonAsync<List<PurchaseOrderSummaryDto>>("api/purchaseorder");
+        return result!;
+    }
 }

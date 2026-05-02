@@ -5,12 +5,12 @@ namespace InventoryManagement.Application.Features.PurchaseOrders.Commands.Creat
 public record PurchaseOrderLineItemDto(
     Guid ProductId,
     int Quantity,
-    decimal NegotiatedUnitCost
+    decimal NegotiatedUnitCost,
+    DateTime? ExpectedDeliveryDate
 );
 
 public record CreatePurchaseOrderCommand(
     Guid SupplierId,
-    DateTime? ExpectedDeliveryDate,
     string? Notes,
     List<PurchaseOrderLineItemDto> Items
 ) : IRequest<Guid>;

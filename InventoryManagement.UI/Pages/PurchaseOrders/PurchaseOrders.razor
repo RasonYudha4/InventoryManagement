@@ -62,7 +62,7 @@ else
                     <th>PO Number</th>
                     <th>Supplier</th>
                     <th>Order Date</th>
-                    <th>Expected Delivery</th>
+                    <th class="col-num">Lines</th>
                     <th class="col-num">Total Amount</th>
                     <th>Status</th>
                     <th></th>
@@ -75,8 +75,9 @@ else
                         <td class="col-mono col-primary">@po.PONumber</td>
                         <td>@po.SupplierName</td>
                         <td>@po.OrderDate.ToString("dd MMM yyyy")</td>
+                        <td class="col-num">@po.TotalLines</td>
                         <td class="col-num">@po.TotalAmount.ToString("C")</td>
-                        <td><span class="badge @GetStatusBadgeClass(po.Status)">@po.Status</span></td>
+                        <td><span class="badge @GetStatusBadgeClass(po.Status)">@FormatStatus(po.Status)</span></td>
                         <td class="col-actions">
                             <a href="/purchase-orders/@po.Id" class="btn-link">View</a>
                         </td>
@@ -88,36 +89,56 @@ else
 }
 
 @code {
-    private List<PurchaseOrderDetailDto> _orders = [];
+    private List<PurchaseOrderSummaryDto> _orders = [];
     private string _activeFilter = "All";
     private bool _loading = true;
     private string? _error;
 
-    private static readonly string[] _statusFilters = ["All", "Draft", "Approved", "Received", "Cancelled"];
+    private static readonly string[] _statusFilters = 
+    [
+        "All", "Draft", "PendingApproval", "Approved", "Rejected", 
+        "SentToSupplier", "PartiallyReceived", "Received", "Cancelled"
+    ];
 
-    private IEnumerable<PurchaseOrderDetailDto> _filtered =>
+    private IEnumerable<PurchaseOrderSummaryDto> _filtered =>
         _activeFilter == "All"
             ? _orders
-            : _orders.Where(o => o.Status.ToString() == _activeFilter);
+            : _orders.Where(o => o.Status == _activeFilter);
 
     protected override async Task OnInitializedAsync()
     {
-        try 
+        try
         {
-            
-        } 
-        catch (Exception ex) 
+            _orders = await PurchaseOrderService.GetAllPurchaseOrdersAsync();
+        }
+        catch (Exception ex)
         {
-            _error = $"Failed to load Purchase Orders: {ex.Message}";
+            _error = $"Failed to load purchase orders: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
         }
     }
 
-    private static string GetStatusBadgeClass(PurchaseOrderStatus status) => status switch
+    private static string GetStatusBadgeClass(string status) => status switch
     {
-        PurchaseOrderStatus.Draft      => "badge-neutral",
-        PurchaseOrderStatus.Approved   => "badge-info",
-        PurchaseOrderStatus.Received   => "badge-success",
-        PurchaseOrderStatus.Cancelled  => "badge-critical",
-        _                              => "badge-neutral"
+        "Draft"             => "badge-neutral",
+        "PendingApproval"   => "badge-warning",
+        "Approved"          => "badge-info",
+        "Rejected"          => "badge-critical",
+        "SentToSupplier"    => "badge-info",
+        "PartiallyReceived" => "badge-warning",
+        "Received"          => "badge-success",
+        "Cancelled"         => "badge-critical",
+        _                   => "badge-neutral"
+    };
+
+    private static string FormatStatus(string status) => status switch
+    {
+        "PendingApproval"   => "Pending Approval",
+        "SentToSupplier"    => "Sent to Supplier",
+        "PartiallyReceived" => "Partially Received",
+        _                   => status
     };
 }
