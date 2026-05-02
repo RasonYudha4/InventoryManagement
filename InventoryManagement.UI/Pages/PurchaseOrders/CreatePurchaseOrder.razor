@@ -114,51 +114,61 @@
         }
 
         <div class="line-item-form">
-            <h3 class="line-item-title">Add Line Item</h3>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label class="form-label">Product <span class="required">*</span></label>
-                    <select class="form-select" @bind="_newItem.ProductId" disabled="@_loadingDropdowns">
-                        <option value="">— Select product —</option>
-                        @foreach (var p in _products)
-                        {
-                            <option value="@p.Id">@p.Name (@p.SKU)</option>
-                        }
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Quantity <span class="required">*</span></label>
-                    <InputNumber class="form-input" @bind-Value="_newItem.Quantity" min="1" />
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Negotiated Unit Cost <span class="required">*</span></label>
-                    <div class="input-prefix-group">
-                        <span class="input-prefix">$</span>
-                        <InputNumber class="form-input" @bind-Value="_newItem.NegotiatedUnitCost"
-                                     min="0" step="0.01" />
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Expected Delivery</label>
-                    <InputDate class="form-input" @bind-Value="_newItem.ExpectedDeliveryDate" />
-                </div>
-
-                <div class="form-group form-group-align-end">
-                    <button type="button" class="btn-secondary" @onclick="AddItem"
-                            disabled="@(!CanAddItem)">
-                        <span class="bi bi-plus-lg"></span> Add Line
-                    </button>
-                </div>
+    <h3 class="line-item-title">Add Line Item</h3>
+        <div class="form-grid">
+            <div class="form-group">
+                <label class="form-label">Product <span class="required">*</span></label>
+                <select class="form-select" @bind="_newItem.ProductId" disabled="@_loadingDropdowns">
+                    <option value="">— Select product —</option>
+                    @foreach (var p in _products)
+                    {
+                        <option value="@p.Id">@p.Name (@p.SKU)</option>
+                    }
+                </select>
+                @if (_newItemErrors.TryGetValue(nameof(_newItem.ProductId), out var productError))
+                {
+                    <p class="form-error-inline">@productError</p>
+                }
             </div>
 
-            @if (_lineItemError is not null)
-            {
-                <p class="form-error-inline">@_lineItemError</p>
-            }
+            <div class="form-group">
+                <label class="form-label">Quantity <span class="required">*</span></label>
+                <InputNumber class="form-input" @bind-Value="_newItem.Quantity" min="1" />
+                @if (_newItemErrors.TryGetValue(nameof(_newItem.Quantity), out var qtyError))
+                {
+                    <p class="form-error-inline">@qtyError</p>
+                }
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Negotiated Unit Cost <span class="required">*</span></label>
+                <div class="input-prefix-group">
+                    <span class="input-prefix">$</span>
+                    <InputNumber class="form-input" @bind-Value="_newItem.NegotiatedUnitCost"
+                                min="0" step="0.01" />
+                </div>
+                @if (_newItemErrors.TryGetValue(nameof(_newItem.NegotiatedUnitCost), out var costError))
+                {
+                    <p class="form-error-inline">@costError</p>
+                }
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Expected Delivery <span class="required">*</span></label>
+                <InputDate class="form-input" @bind-Value="_newItem.ExpectedDeliveryDate" />
+                @if (_newItemErrors.TryGetValue(nameof(_newItem.ExpectedDeliveryDate), out var dateError))
+                {
+                    <p class="form-error-inline">@dateError</p>
+                }
+            </div>
+
+            <div class="form-group form-group-align-end">
+                <button type="button" class="btn-secondary" @onclick="AddItem">
+                    <span class="bi bi-plus-lg"></span> Add Line
+                </button>
+            </div>
         </div>
+    </div>
 
         <div class="form-actions">
             <a href="/purchase-orders" class="btn-secondary">Cancel</a>
@@ -181,7 +191,7 @@
     private LineItemFormModel _newItem = new();
     private bool _submitting;
     private string? _error;
-    private string? _lineItemError;
+    private Dictionary<string, string> _newItemErrors = [];
     private List<SupplierSummaryDto> _suppliers = [];
     private List<ProductSummaryDto> _products = [];
     private bool _loadingSuppliers = true;
@@ -214,24 +224,30 @@
     private decimal _estimatedTotal =>
         _model.Items.Sum(i => i.Quantity * i.NegotiatedUnitCost);
 
-    private bool CanAddItem =>
-        !string.IsNullOrWhiteSpace(_newItem.ProductId) &&
-        _newItem.Quantity > 0 &&
-        _newItem.NegotiatedUnitCost > 0;
-
     private void AddItem()
     {
-        _lineItemError = null;
+        _newItemErrors = [];
 
-        if (!CanAddItem)
+        if (string.IsNullOrWhiteSpace(_newItem.ProductId))
+            _newItemErrors[nameof(_newItem.ProductId)] = "Please select a product.";
+
+        if (_newItem.Quantity <= 0)
+            _newItemErrors[nameof(_newItem.Quantity)] = "Quantity must be at least 1.";
+
+        if (_newItem.NegotiatedUnitCost <= 0)
+            _newItemErrors[nameof(_newItem.NegotiatedUnitCost)] = "Unit cost must be greater than 0.";
+
+        if (!_newItem.ExpectedDeliveryDate.HasValue)
+            _newItemErrors[nameof(_newItem.ExpectedDeliveryDate)] = "Please specify an expected delivery date.";
+
+        if (_newItemErrors.Any())
         {
-            _lineItemError = "Please fill in all line item fields before adding.";
             return;
         }
 
         if (_model.Items.Any(i => i.ProductId == _newItem.ProductId))
         {
-            _lineItemError = "This product is already in the order. Adjust the existing line instead.";
+            _newItemErrors[nameof(_newItem.ProductId)] = "This product is already in the order. Adjust the existing line instead.";
             return;
         }
 
@@ -239,9 +255,11 @@
         {
             ProductId            = _newItem.ProductId,
             Quantity             = _newItem.Quantity,
-            NegotiatedUnitCost   = _newItem.NegotiatedUnitCost
+            NegotiatedUnitCost   = _newItem.NegotiatedUnitCost,
+            ExpectedDeliveryDate = _newItem.ExpectedDeliveryDate
         });
 
+        _newItemErrors = [];
         _newItem = new();
     }
 
@@ -257,11 +275,11 @@
     {
         _submitting = true;
         _error = null;
-        _lineItemError = null;
+        _newItemErrors = [];
+
 
         try
         {
-            // Validate supplier
             if (!Guid.TryParse(_model.SupplierId, out var supplierId))
             {
                 _error = "Please select a supplier.";
@@ -269,18 +287,24 @@
                 return;
             }
 
-            // Warn if sub-form has unsaved data
-            if (HasPartialInput)
+            // If sub-form has any data, attempt to add it first before submitting
+            if (!string.IsNullOrWhiteSpace(_newItem.ProductId) ||
+                _newItem.Quantity > 1 ||
+                _newItem.NegotiatedUnitCost > 0 ||
+                _newItem.ExpectedDeliveryDate.HasValue)
             {
-                _lineItemError = "You have an unsaved line item — click Add Line first, or clear the fields.";
-                _submitting = false;
-                return;
+                AddItem();
+                if (_newItemErrors.Any())
+                {
+                    _error = "Please fix the unsaved line item errors before submitting.";
+                    _submitting = false;
+                    return;
+                }
             }
 
-            // Validate at least one line item exists
             if (!_model.Items.Any())
             {
-                _lineItemError = "Please add at least one line item before creating the order.";
+                _error = "Please add at least one line item before creating the order.";
                 _submitting = false;
                 return;
             }
