@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using InventoryManagement.UI.Helpers;
 using InventoryManagement.UI.Models;
 using InventoryManagement.UI.Models.Requests;
 using InventoryManagement.UI.Services.Interfaces;
@@ -24,7 +25,9 @@ public class PurchaseOrderService(HttpClient http) : IPurchaseOrderService
 
     public async Task<PurchaseOrderDetailDto> GetPurchaseOrderByIdAsync(Guid id)
     {
-        var result = await http.GetFromJsonAsync<PurchaseOrderDetailDto>($"api/purchaseorder/{id}");
+        var result = await http.GetFromJsonAsync<PurchaseOrderDetailDto>(
+            $"api/purchaseorder/{id}", 
+            JsonOptions.Default);
         return result!;
     }
 

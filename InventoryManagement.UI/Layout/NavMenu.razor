@@ -88,6 +88,16 @@
             </Authorized>
         </AuthorizeView>
 
+        <AuthorizeView Roles="Admin,Manager,Auditor">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="sales-orders">
+                        <span class="bi bi-receipt-nav-menu" aria-hidden="true"></span> Sales Orders
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
         <AuthorizeView Roles="Admin,Manager">
             <Authorized>
                 <div class="nav-item px-3">

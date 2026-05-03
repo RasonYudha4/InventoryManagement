@@ -1,0 +1,324 @@
+@page "/sales-orders/create"
+@using InventoryManagement.UI.Models.Requests
+@using System.ComponentModel.DataAnnotations
+@attribute [Authorize(Roles = "Admin,Manager")]
+@inject ISalesOrderService SalesOrderService
+@inject IProductService ProductService
+@inject NavigationManager Nav
+@inject ILogger<object> Logger
+
+<PageTitle>New Sales Order — Inventory</PageTitle>
+
+<div class="page-header">
+    <div class="page-header-left">
+        <a href="/sales-orders" class="btn-back"><span class="bi bi-arrow-left"></span> Sales Orders</a>
+        <div>
+            <h1 class="page-title">New Sales Order</h1>
+            <p class="page-subtitle">Create a draft order for a customer</p>
+        </div>
+    </div>
+</div>
+
+@if (_error is not null)
+{
+    <div class="alert-error">
+        <span class="bi bi-exclamation-circle-fill"></span> @_error
+    </div>
+}
+
+<div class="form-card">
+    <EditForm Model="_model" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+
+        <h2 class="form-section-title">Order Details</h2>
+        <div class="form-grid">
+            <div class="form-group">
+                <label class="form-label">Customer Name <span class="required">*</span></label>
+                <InputText class="form-input" @bind-Value="_model.CustomerName"
+                           placeholder="Enter customer name..." />
+                <ValidationMessage For="() => _model.CustomerName" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Customer Contact</label>
+                <InputText class="form-input" @bind-Value="_model.CustomerContact"
+                           placeholder="Email or phone (optional)..." />
+            </div>
+
+            <div class="form-group form-group-full">
+                <label class="form-label">Notes</label>
+                <InputTextArea class="form-input form-textarea" @bind-Value="_model.Notes"
+                               rows="3" placeholder="Optional notes for this sales order..." />
+            </div>
+        </div>
+
+        <h2 class="form-section-title">
+            Order Lines
+            <span class="section-badge">@_model.Items.Count item(s)</span>
+        </h2>
+
+        @if (_model.Items.Any())
+        {
+            <div class="data-card">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th class="col-num">Quantity</th>
+                            <th class="col-num">Unit Price</th>
+                            <th>Expected Ship Date</th>
+                            <th class="col-num">Line Total</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < _model.Items.Count; i++)
+                        {
+                            var index = i;
+                            var item = _model.Items[index];
+                            <tr>
+                                <td class="col-mono">@GetProductName(item.ProductId)</td>
+                                <td class="col-num">@item.Quantity</td>
+                                <td class="col-num">@item.UnitPrice.ToString("C")</td>
+                                <td>@(item.ExpectedShipDate?.ToString("dd MMM yyyy") ?? "—")</td>
+                                <td class="col-num">@((item.Quantity * item.UnitPrice).ToString("C"))</td>
+                                <td class="col-actions">
+                                    <button type="button" class="btn-link btn-danger-text"
+                                            @onclick="() => RemoveItem(index)">
+                                        Remove
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-footer">
+                            <td colspan="4" class="col-num">Estimated Total</td>
+                            <td class="col-num col-primary">@_estimatedTotal.ToString("C")</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        }
+
+        <div class="line-item-form">
+            <h3 class="line-item-title">Add Line Item</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Product <span class="required">*</span></label>
+                    <select class="form-select" @bind="_newItem.ProductId" disabled="@_loadingProducts">
+                        <option value="">— Select product —</option>
+                        @foreach (var p in _products)
+                        {
+                            <option value="@p.Id">@p.Name (@p.SKU)</option>
+                        }
+                    </select>
+                    @if (_newItemErrors.TryGetValue(nameof(_newItem.ProductId), out var productError))
+                    {
+                        <p class="form-error-inline">@productError</p>
+                    }
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Quantity <span class="required">*</span></label>
+                    <InputNumber class="form-input" @bind-Value="_newItem.Quantity" min="1" />
+                    @if (_newItemErrors.TryGetValue(nameof(_newItem.Quantity), out var qtyError))
+                    {
+                        <p class="form-error-inline">@qtyError</p>
+                    }
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Unit Price <span class="required">*</span></label>
+                    <div class="input-prefix-group">
+                        <span class="input-prefix">$</span>
+                        <InputNumber class="form-input" @bind-Value="_newItem.UnitPrice"
+                                     min="0" step="0.01" />
+                    </div>
+                    @if (_newItemErrors.TryGetValue(nameof(_newItem.UnitPrice), out var priceError))
+                    {
+                        <p class="form-error-inline">@priceError</p>
+                    }
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Expected Ship Date <span class="required">*</span></label>
+                    <InputDate class="form-input" @bind-Value="_newItem.ExpectedShipDate" />
+                    @if (_newItemErrors.TryGetValue(nameof(_newItem.ExpectedShipDate), out var dateError))
+                    {
+                        <p class="form-error-inline">@dateError</p>
+                    }
+                </div>
+
+                <div class="form-group form-group-align-end">
+                    <button type="button" class="btn-secondary" @onclick="AddItem">
+                        <span class="bi bi-plus-lg"></span> Add Line
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <a href="/sales-orders" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary" disabled="@_submitting">
+                @if (_submitting)
+                {
+                    <span class="spinner-sm"></span> <span>Creating Draft...</span>
+                }
+                else
+                {
+                    <span class="bi bi-file-earmark-plus"></span> <span>Create Draft</span>
+                }
+            </button>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    private CreateSalesOrderFormModel _model = new();
+    private LineItemFormModel _newItem = new();
+    private bool _submitting;
+    private string? _error;
+    private Dictionary<string, string> _newItemErrors = [];
+    private List<ProductSummaryDto> _products = [];
+    private bool _loadingProducts = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _products = await ProductService.GetAllProductsAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load products: {ex.Message}";
+        }
+        finally
+        {
+            _loadingProducts = false;
+        }
+    }
+
+    private decimal _estimatedTotal =>
+        _model.Items.Sum(i => i.Quantity * i.UnitPrice);
+
+    private string GetProductName(string productId) =>
+        _products.FirstOrDefault(p => p.Id.ToString() == productId)?.Name ?? productId;
+
+    private void AddItem()
+    {
+        _newItemErrors = [];
+
+        if (string.IsNullOrWhiteSpace(_newItem.ProductId))
+            _newItemErrors[nameof(_newItem.ProductId)] = "Please select a product.";
+
+        if (_newItem.Quantity <= 0)
+            _newItemErrors[nameof(_newItem.Quantity)] = "Quantity must be at least 1.";
+
+        if (_newItem.UnitPrice <= 0)
+            _newItemErrors[nameof(_newItem.UnitPrice)] = "Unit price must be greater than 0.";
+
+        if (!_newItem.ExpectedShipDate.HasValue)
+            _newItemErrors[nameof(_newItem.ExpectedShipDate)] = "Please specify an expected ship date.";
+
+        if (_newItemErrors.Any()) return;
+
+        if (_model.Items.Any(i => i.ProductId == _newItem.ProductId))
+        {
+            _newItemErrors[nameof(_newItem.ProductId)] = "This product is already in the order. Adjust the existing line instead.";
+            return;
+        }
+
+        _model.Items.Add(new LineItemFormModel
+        {
+            ProductId       = _newItem.ProductId,
+            Quantity        = _newItem.Quantity,
+            UnitPrice       = _newItem.UnitPrice,
+            ExpectedShipDate = _newItem.ExpectedShipDate
+        });
+
+        _newItemErrors = [];
+        _newItem = new();
+    }
+
+    private void RemoveItem(int index)
+    {
+        if (index >= 0 && index < _model.Items.Count)
+            _model.Items.RemoveAt(index);
+    }
+
+    private async Task HandleSubmit()
+    {
+        _submitting = true;
+        _error = null;
+        _newItemErrors = [];
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_model.CustomerName))
+            {
+                _error = "Please enter a customer name.";
+                _submitting = false;
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_newItem.ProductId) ||
+                _newItem.Quantity > 1 ||
+                _newItem.UnitPrice > 0 ||
+                _newItem.ExpectedShipDate.HasValue)
+            {
+                AddItem();
+                if (_newItemErrors.Any())
+                {
+                    _error = "Please fix the unsaved line item errors before submitting.";
+                    _submitting = false;
+                    return;
+                }
+            }
+
+            if (!_model.Items.Any())
+            {
+                _error = "Please add at least one line item before creating the order.";
+                _submitting = false;
+                return;
+            }
+
+            var request = new CreateSalesOrderRequest(
+                _model.CustomerName,
+                _model.CustomerContact,
+                _model.Notes,
+                _model.Items.Select(i => new SalesOrderLineItemRequest(
+                    Guid.Parse(i.ProductId),
+                    i.Quantity,
+                    i.UnitPrice,
+                    i.ExpectedShipDate
+                )).ToList()
+            );
+
+            var id = await SalesOrderService.CreateDraftAsync(request);
+            Nav.NavigateTo($"/sales-orders/{id}");
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to create sales order: {ex.Message}";
+            _submitting = false;
+        }
+    }
+
+    private class CreateSalesOrderFormModel
+    {
+        [Required] public string CustomerName { get; set; } = string.Empty;
+        public string? CustomerContact { get; set; }
+        public string? Notes { get; set; }
+        public List<LineItemFormModel> Items { get; set; } = [];
+    }
+
+    private class LineItemFormModel
+    {
+        public string ProductId { get; set; } = string.Empty;
+        public int Quantity { get; set; } = 1;
+        public decimal UnitPrice { get; set; }
+        public DateTime? ExpectedShipDate { get; set; }
+    }
+}

@@ -1,0 +1,138 @@
+@page "/sales-orders"
+@using InventoryManagement.UI.Models.Enums
+@attribute [Authorize(Roles = "Admin,Manager,Auditor")]
+@inject ISalesOrderService SalesOrderService
+@inject NavigationManager Nav
+
+<PageTitle>Sales Orders — Inventory</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Sales Orders</h1>
+        <p class="page-subtitle">Track and manage all outbound orders</p>
+    </div>
+    <AuthorizeView Roles="Admin,Manager">
+        <Authorized>
+            <a href="/sales-orders/create" class="btn-primary">
+                <span class="bi bi-plus-lg"></span> New Order
+            </a>
+        </Authorized>
+    </AuthorizeView>
+</div>
+
+@if (_loading)
+{
+    <div class="state-container">
+        <div class="spinner"></div>
+        <p>Loading sales orders...</p>
+    </div>
+}
+else if (_error is not null)
+{
+    <div class="alert-error">
+        <span class="bi bi-exclamation-circle-fill"></span> @_error
+    </div>
+}
+else if (!_orders.Any())
+{
+    <div class="state-container state-empty">
+        <span class="bi bi-bag state-icon"></span>
+        <p>No sales orders found.</p>
+    </div>
+}
+else
+{
+    <div class="toolbar">
+        <div class="filter-tabs">
+            @foreach (var status in _statusFilters)
+            {
+                <button class="filter-tab @(_activeFilter == status ? "filter-tab-active" : "")"
+                        @onclick="() => _activeFilter = status">
+                    @FormatStatus(status)
+                </button>
+            }
+        </div>
+        <span class="result-count">@_filtered.Count() result(s)</span>
+    </div>
+
+    <div class="data-card">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>SO Number</th>
+                    <th>Customer</th>
+                    <th>Order Date</th>
+                    <th class="col-num">Lines</th>
+                    <th class="col-num">Total Amount</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var so in _filtered)
+                {
+                    <tr>
+                        <td class="col-mono col-primary">@so.SONumber</td>
+                        <td>@so.CustomerName</td>
+                        <td>@so.OrderDate.ToString("dd MMM yyyy")</td>
+                        <td class="col-num">@so.TotalLines</td>
+                        <td class="col-num">@so.TotalAmount.ToString("C")</td>
+                        <td><span class="badge @GetStatusBadgeClass(so.Status)">@FormatStatus(so.Status)</span></td>
+                        <td class="col-actions">
+                            <a href="/sales-orders/@so.Id" class="btn-link">View</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<SalesOrderSummaryDto> _orders = [];
+    private string _activeFilter = "All";
+    private bool _loading = true;
+    private string? _error;
+
+    private static readonly string[] _statusFilters =
+    [
+        "All", "Draft", "Confirmed", "PartiallyDispatched", "Dispatched", "Cancelled"
+    ];
+
+    private IEnumerable<SalesOrderSummaryDto> _filtered =>
+        _activeFilter == "All"
+            ? _orders
+            : _orders.Where(o => o.Status == _activeFilter);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _orders = await SalesOrderService.GetAllSalesOrdersAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load sales orders: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static string GetStatusBadgeClass(string status) => status switch
+    {
+        "Draft"               => "badge-neutral",
+        "Confirmed"           => "badge-info",
+        "PartiallyDispatched" => "badge-warning",
+        "Dispatched"          => "badge-success",
+        "Cancelled"           => "badge-critical",
+        _                     => "badge-neutral"
+    };
+
+    private static string FormatStatus(string status) => status switch
+    {
+        "PartiallyDispatched" => "Partially Dispatched",
+        _                     => status
+    };
+}

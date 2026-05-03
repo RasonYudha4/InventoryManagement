@@ -1,0 +1,236 @@
+@page "/sales-orders/{Id:guid}"
+@using InventoryManagement.UI.Models.Enums
+@attribute [Authorize(Roles = "Admin,Manager,Auditor")]
+@inject ISalesOrderService SalesOrderService
+
+<PageTitle>@(_order?.SONumber ?? "Sales Order") — Inventory</PageTitle>
+
+@if (_loading)
+{
+    <div class="state-container">
+        <div class="spinner"></div>
+        <p>Loading sales order...</p>
+    </div>
+}
+else if (_error is not null)
+{
+    <div class="page-header">
+        <a href="/sales-orders" class="btn-back"><span class="bi bi-arrow-left"></span> Sales Orders</a>
+    </div>
+    <div class="alert-error">
+        <span class="bi bi-exclamation-circle-fill"></span> @_error
+    </div>
+}
+else if (_order is not null)
+{
+    <div class="page-header">
+        <div class="page-header-left">
+            <a href="/sales-orders" class="btn-back"><span class="bi bi-arrow-left"></span> Sales Orders</a>
+            <div>
+                <h1 class="page-title">@_order.SONumber</h1>
+                <p class="page-subtitle">
+                    <span class="badge @GetStatusBadgeClass(_order.Status)">@_order.Status</span>
+                    &nbsp;·&nbsp; @_order.CustomerName
+                </p>
+            </div>
+        </div>
+        <AuthorizeView Roles="Admin,Manager">
+            <Authorized>
+                @if (_order.Status == SalesOrderStatus.Draft)
+                {
+                    <button class="btn-primary" @onclick="ConfirmOrder" disabled="@_confirming">
+                        @if (_confirming)
+                        {
+                            <span class="spinner-sm"></span> <span>Confirming...</span>
+                        }
+                        else
+                        {
+                            <span class="bi bi-check-lg"></span> <span>Confirm Order</span>
+                        }
+                    </button>
+                }
+            </Authorized>
+        </AuthorizeView>
+    </div>
+
+    @if (_confirmError is not null)
+    {
+        <div class="alert-error">
+            <span class="bi bi-exclamation-circle-fill"></span> @_confirmError
+        </div>
+    }
+
+    @if (_confirmSuccess)
+    {
+        <div class="alert-success">
+            <span class="bi bi-check-circle-fill"></span> Sales order confirmed successfully.
+        </div>
+    }
+
+    <div class="detail-grid">
+        <div class="detail-card">
+            <h2 class="detail-card-title">Order Details</h2>
+            <dl class="detail-list">
+                <div class="detail-row">
+                    <dt>SO Number</dt>
+                    <dd class="col-mono">@_order.SONumber</dd>
+                </div>
+                <div class="detail-row">
+                    <dt>Status</dt>
+                    <dd><span class="badge @GetStatusBadgeClass(_order.Status)">@_order.Status</span></dd>
+                </div>
+                <div class="detail-row">
+                    <dt>Order Date</dt>
+                    <dd>@_order.OrderDate.ToString("dd MMM yyyy")</dd>
+                </div>
+                @if (_order.Notes is not null)
+                {
+                    <div class="detail-row">
+                        <dt>Notes</dt>
+                        <dd>@_order.Notes</dd>
+                    </div>
+                }
+            </dl>
+        </div>
+
+        <div class="detail-card">
+            <h2 class="detail-card-title">Customer</h2>
+            <dl class="detail-list">
+                <div class="detail-row">
+                    <dt>Name</dt>
+                    <dd>@_order.CustomerName</dd>
+                </div>
+                @if (_order.CustomerContact is not null)
+                {
+                    <div class="detail-row">
+                        <dt>Contact</dt>
+                        <dd>@_order.CustomerContact</dd>
+                    </div>
+                }
+            </dl>
+        </div>
+
+        <div class="detail-card">
+            <h2 class="detail-card-title">Summary</h2>
+            <dl class="detail-list">
+                <div class="detail-row">
+                    <dt>Total Lines</dt>
+                    <dd>@_order.OrderLines.Count</dd>
+                </div>
+                <div class="detail-row">
+                    <dt>Total Units Ordered</dt>
+                    <dd>@_order.OrderLines.Sum(l => l.OrderedQuantity)</dd>
+                </div>
+                <div class="detail-row">
+                    <dt>Total Units Dispatched</dt>
+                    <dd>@_order.OrderLines.Sum(l => l.DispatchedQuantity)</dd>
+                </div>
+                <div class="detail-row">
+                    <dt>Total Amount</dt>
+                    <dd class="col-primary">@_order.TotalAmount.ToString("C")</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+
+    <h2 class="section-title">Order Lines</h2>
+    <div class="data-card">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th class="col-num">#</th>
+                    <th>Product</th>
+                    <th>SKU</th>
+                    <th class="col-num">Ordered</th>
+                    <th class="col-num">Dispatched</th>
+                    <th class="col-num">Remaining</th>
+                    <th class="col-num">Unit Price</th>
+                    <th class="col-num">Total</th>
+                    <th>Expected Ship Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var line in _order.OrderLines)
+                {
+                    var remaining = line.OrderedQuantity - line.DispatchedQuantity;
+                    <tr>
+                        <td class="col-num">@line.LineNumber</td>
+                        <td class="col-primary">@line.ProductName</td>
+                        <td class="col-mono">@line.SKU</td>
+                        <td class="col-num">@line.OrderedQuantity</td>
+                        <td class="col-num">@line.DispatchedQuantity</td>
+                        <td class="col-num @(remaining > 0 ? "col-warning" : "")">@remaining</td>
+                        <td class="col-num">@line.UnitPrice.ToString("C")</td>
+                        <td class="col-num">@line.TotalPrice.ToString("C")</td>
+                        <td>@(line.ExpectedShipDate?.ToString("dd MMM yyyy") ?? "—")</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr class="table-footer">
+                    <td colspan="8" class="col-num">Total</td>
+                    <td class="col-num col-primary">@_order.TotalAmount.ToString("C")</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private SalesOrderDetailDto? _order;
+    private bool _loading = true;
+    private bool _confirming;
+    private bool _confirmSuccess;
+    private string? _error;
+    private string? _confirmError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _order = await SalesOrderService.GetSalesOrderByIdAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load sales order: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ConfirmOrder()
+    {
+        _confirming = true;
+        _confirmError = null;
+        _confirmSuccess = false;
+
+        try
+        {
+            await SalesOrderService.ConfirmOrderAsync(Id);
+            _order = await SalesOrderService.GetSalesOrderByIdAsync(Id);
+            _confirmSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            _confirmError = $"Failed to confirm order: {ex.Message}";
+        }
+        finally
+        {
+            _confirming = false;
+        }
+    }
+
+    private static string GetStatusBadgeClass(SalesOrderStatus status) => status switch
+    {
+        SalesOrderStatus.Draft               => "badge-neutral",
+        SalesOrderStatus.Confirmed           => "badge-info",
+        SalesOrderStatus.PartiallyDispatched => "badge-warning",
+        SalesOrderStatus.Dispatched          => "badge-success",
+        SalesOrderStatus.Cancelled           => "badge-critical",
+        _                                    => "badge-neutral"
+    };
+}
