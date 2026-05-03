@@ -6,6 +6,7 @@ public record ProductSummaryDto(
     Guid Id,
     string SKU,
     string Name,
+    Guid SupplierId,
     decimal SellingPrice,
     int ReorderPoint,
     string CategoryName,

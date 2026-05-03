@@ -3,7 +3,7 @@ namespace InventoryManagement.UI.Models.Requests;
 public record ReceiveStockRequest(
     Guid ProductId,
     Guid LocationId,
-    Guid? PurchaseOrderId,
+    Guid PurchaseOrderId,
     int Quantity,
     string? Notes
 );

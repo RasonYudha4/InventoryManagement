@@ -7,6 +7,7 @@ public record ProductSummaryDto(
     decimal SellingPrice,
     int ReorderPoint,
     string CategoryName,
+    Guid SupplierId,
     string SupplierName,
     bool IsActive
 );

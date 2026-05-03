@@ -5,6 +5,7 @@
 @inject IStockService StockService
 @inject IWarehouseService WarehouseService
 @inject IProductService ProductService
+@inject IPurchaseOrderService PurchaseOrderService
 @inject NavigationManager Nav
 
 <PageTitle>Receive Stock — Inventory</PageTitle>
@@ -36,20 +37,27 @@
 
         <div class="form-grid">
             <div class="form-group">
-                <label class="form-label">Product <span class="required">*</span></label>
-                <select class="form-select" @bind="_model.ProductId" disabled="@_loadingDropdowns">
-                    <option value="">— Select product —</option>
-                    @foreach (var p in _products)
+                <label class="form-label">Purchase Order <span class="required">*</span></label>
+                <select class="form-select" @onchange="OnPurchaseOrderChanged" disabled="@_loadingPurchaseOrders">
+                    <option value="">— Select purchase order —</option>
+                    @foreach (var po in _purchaseOrders)
                     {
-                        <option value="@p.Id">@p.Name (@p.SKU)</option>
+                        <option value="@po.Id">@po.PONumber — @po.SupplierName</option>
                     }
                 </select>
-                <ValidationMessage For="() => _model.ProductId" />
+                <ValidationMessage For="() => _model.PurchaseOrderId" />
             </div>
 
             <div class="form-group">
-                <label class="form-label">Purchase Order ID</label>
-                <InputText class="form-input" @bind-Value="_model.PurchaseOrderId" placeholder="PO GUID (optional)" />
+                <label class="form-label">Product <span class="required">*</span></label>
+                <select class="form-select" @bind="_model.ProductId" disabled="@(!_poLines.Any())">
+                    <option value="">— Select product —</option>
+                    @foreach (var line in _poLines)
+                    {
+                        <option value="@line.ProductId">@line.ProductName (@line.SKU) — @(line.OrderedQuantity - line.ReceivedQuantity) remaining</option>
+                    }
+                </select>
+                <ValidationMessage For="() => _model.ProductId" />
             </div>
 
             <div class="form-group">
@@ -108,12 +116,13 @@
 
 @code {
     private ReceiveStockFormModel _model = new();
-    private List<ProductSummaryDto> _products = [];
+    private List<PurchaseOrderSummaryDto> _purchaseOrders = [];
+    private List<PurchaseOrderLineDetailDto> _poLines = [];
     private List<WarehouseDto> _warehouses = [];
     private List<LocationDto> _locations = [];
 
+    private bool _loadingPurchaseOrders = true;
     private bool _loadingWarehouses = true;
-    private bool _loadingDropdowns = true;
     private bool _submitting;
     private string? _error;
     private string? _successMessage;
@@ -122,17 +131,49 @@
     {
         try
         {
-            _products = await ProductService.GetAllProductsAsync();
-            _warehouses = await WarehouseService.GetAllWarehousesAsync();
+            var purchaseOrdersTask = PurchaseOrderService.GetAllPurchaseOrdersAsync();
+            var warehousesTask = WarehouseService.GetAllWarehousesAsync();
+            await Task.WhenAll(purchaseOrdersTask, warehousesTask);
+
+            // Only show approved POs that still have remaining items to receive
+            _purchaseOrders = purchaseOrdersTask.Result
+                .Where(po => po.Status == "Approved" || po.Status == "PartiallyReceived")
+                .ToList();
+
+            _warehouses = warehousesTask.Result;
         }
         catch (Exception ex)
         {
-            _error = $"Failed to load warehouses: {ex.Message}";
+            _error = $"Failed to load form data: {ex.Message}";
         }
         finally
         {
+            _loadingPurchaseOrders = false;
             _loadingWarehouses = false;
-            _loadingDropdowns = false;
+        }
+    }
+
+    private async Task OnPurchaseOrderChanged(ChangeEventArgs e)
+    {
+        _poLines = [];
+        _model.PurchaseOrderId = Guid.Empty;
+        _model.ProductId = Guid.Empty;
+
+        if (Guid.TryParse(e.Value?.ToString(), out var poId))
+        {
+            try
+            {
+                var po = await PurchaseOrderService.GetPurchaseOrderByIdAsync(poId);
+                _poLines = po.OrderLines
+                    .Where(l => l.OrderedQuantity - l.ReceivedQuantity > 0)
+                    .ToList();
+
+                _model.PurchaseOrderId = poId;
+            }
+            catch (Exception ex)
+            {
+                _error = $"Failed to load purchase order lines: {ex.Message}";
+            }
         }
     }
 
@@ -156,13 +197,20 @@
 
         try
         {
-
-            Guid? purchaseOrderId = Guid.TryParse(_model.PurchaseOrderId, out var poId) ? poId : null;
+            if (_model.PurchaseOrderId == Guid.Empty)
+                throw new Exception("Please select a purchase order.");
 
             if (!Guid.TryParse(_model.LocationId, out var locationId))
                 throw new Exception("Please select a location.");
 
-            var request = new ReceiveStockRequest(_model.ProductId, locationId, purchaseOrderId, _model.Quantity, _model.Notes);
+            var request = new ReceiveStockRequest(
+                _model.ProductId,
+                locationId,
+                _model.PurchaseOrderId,
+                _model.Quantity,
+                _model.Notes
+            );
+
             var transactionId = await StockService.ReceiveStockAsync(request);
             _successMessage = $"Stock received successfully. Transaction ID: {transactionId}";
             Reset();
@@ -180,13 +228,14 @@
     private void Reset()
     {
         _model = new();
+        _poLines = [];
         _locations = [];
     }
 
     private class ReceiveStockFormModel
     {
+        [Required] public Guid PurchaseOrderId { get; set; }
         [Required] public Guid ProductId { get; set; }
-        public string? PurchaseOrderId { get; set; }
         [Required] public string LocationId { get; set; } = string.Empty;
         [Range(1, int.MaxValue, ErrorMessage = "Quantity must be at least 1.")]
         public int Quantity { get; set; } = 1;

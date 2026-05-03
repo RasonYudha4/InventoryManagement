@@ -26,18 +26,6 @@
     </div>
 }
 
-@* Debug panel — remove before production *@
-@if (_debugLog.Any())
-{
-    <div class="alert-info" style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap;">
-        <strong>Debug Log:</strong>
-        @foreach (var entry in _debugLog)
-        {
-            <div>@entry</div>
-        }
-    </div>
-}
-
 <div class="form-card">
     <EditForm Model="_model" OnValidSubmit="HandleSubmit">
         <DataAnnotationsValidator />
@@ -46,7 +34,7 @@
         <div class="form-grid">
             <div class="form-group">
                 <label class="form-label">Supplier <span class="required">*</span></label>
-                <select class="form-select" @bind="_model.SupplierId" disabled="@_loadingSuppliers">
+                <select class="form-select" @onchange="OnSupplierChanged" disabled="@_loadingSuppliers">
                     <option value="">— Select supplier —</option>
                     @foreach (var s in _suppliers)
                     {
@@ -104,7 +92,7 @@
                     </tbody>
                     <tfoot>
                         <tr class="table-footer">
-                            <td colspan="3" class="col-num">Estimated Total</td>
+                            <td colspan="4" class="col-num">Estimated Total</td>
                             <td class="col-num col-primary">@_estimatedTotal.ToString("C")</td>
                             <td></td>
                         </tr>
@@ -118,9 +106,10 @@
         <div class="form-grid">
             <div class="form-group">
                 <label class="form-label">Product <span class="required">*</span></label>
-                <select class="form-select" @bind="_newItem.ProductId" disabled="@_loadingDropdowns">
+                <select class="form-select" @bind="_newItem.ProductId"
+                        disabled="@(string.IsNullOrEmpty(_model.SupplierId) || _loadingDropdowns)">
                     <option value="">— Select product —</option>
-                    @foreach (var p in _products)
+                    @foreach (var p in _filteredProducts)
                     {
                         <option value="@p.Id">@p.Name (@p.SKU)</option>
                     }
@@ -196,7 +185,6 @@
     private List<ProductSummaryDto> _products = [];
     private bool _loadingSuppliers = true;
     private bool _loadingDropdowns = true;
-    private List<string> _debugLog = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -223,6 +211,11 @@
 
     private decimal _estimatedTotal =>
         _model.Items.Sum(i => i.Quantity * i.NegotiatedUnitCost);
+    
+    private IEnumerable<ProductSummaryDto> _filteredProducts =>
+    string.IsNullOrEmpty(_model.SupplierId)
+        ? []
+        : _products.Where(p => p.SupplierId.ToString() == _model.SupplierId);
 
     private void AddItem()
     {
@@ -332,10 +325,12 @@
         }
     }
 
-    private bool HasPartialInput =>
-        !string.IsNullOrWhiteSpace(_newItem.ProductId) ||
-        _newItem.Quantity > 1 ||
-        _newItem.NegotiatedUnitCost > 0;
+    private void OnSupplierChanged(ChangeEventArgs e)
+    {
+        _model.SupplierId = e.Value?.ToString() ?? string.Empty;
+        _newItem.ProductId = string.Empty;  // reset product when supplier changes
+        _newItemErrors = [];
+    }
 
     private class CreatePurchaseOrderFormModel
     {

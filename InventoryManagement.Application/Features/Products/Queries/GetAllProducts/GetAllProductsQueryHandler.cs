@@ -20,6 +20,7 @@ public class GetAllProductsQueryHandler(IApplicationDbContext context)
                 p.Id,
                 p.SKU,
                 p.Name,
+                p.SupplierId,
                 p.SellingPrice,
                 p.ReorderPoint,
                 p.Category.Name,
