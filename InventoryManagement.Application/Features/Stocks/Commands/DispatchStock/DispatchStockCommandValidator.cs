@@ -8,11 +8,9 @@ public class DispatchStockCommandValidator : AbstractValidator<DispatchStockComm
     {
         RuleFor(x => x.ProductId).NotEmpty();
         RuleFor(x => x.LocationId).NotEmpty();
-
+        RuleFor(x => x.SalesOrderId).NotEmpty()
+            .WithMessage("A Sales Order is required for outbound dispatch.");
         RuleFor(x => x.Quantity)
             .GreaterThan(0).WithMessage("You must dispatch at least 1 item.");
-
-        RuleFor(x => x.SalesOrderNumber)
-            .NotEmpty().WithMessage("A Sales Order Number is required for outbound dispatch.");
     }
 }

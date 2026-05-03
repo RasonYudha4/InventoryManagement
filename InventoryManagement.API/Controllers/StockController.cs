@@ -19,11 +19,6 @@ public class StockController(IMediator mediator) : ControllerBase
     [HttpPost("receive")]
     public async Task<IActionResult> ReceiveStock([FromBody] ReceiveStockRequest request)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        if (string.IsNullOrEmpty(userId))
-            return Unauthorized("User identity not found in token.");
-
         var command = new ReceiveStockCommand(
             request.ProductId,
             request.LocationId,
@@ -53,8 +48,8 @@ public class StockController(IMediator mediator) : ControllerBase
         var command = new DispatchStockCommand(
             request.ProductId,
             request.LocationId,
+            request.SalesOrderId,
             request.Quantity,
-            request.SalesOrderNumber,
             request.Notes
         );
 

@@ -5,6 +5,7 @@
 @inject IStockService StockService
 @inject IProductService ProductService
 @inject IWarehouseService WarehouseService
+@inject ISalesOrderService SalesOrderService
 
 <PageTitle>Dispatch Stock — Inventory</PageTitle>
 
@@ -35,20 +36,29 @@
 
         <div class="form-grid">
             <div class="form-group">
-                <label class="form-label">Product <span class="required">*</span></label>
-                <select class="form-select" @bind="_model.ProductId" disabled="@_loadingDropdowns">
-                    <option value="">— Select product —</option>
-                    @foreach (var p in _products)
+                <label class="form-label">Sales Order <span class="required">*</span></label>
+                <select class="form-select" @onchange="OnSalesOrderChanged" disabled="@_loadingSalesOrders">
+                    <option value="">— Select sales order —</option>
+                    @foreach (var so in _salesOrders)
                     {
-                        <option value="@p.Id">@p.Name (@p.SKU)</option>
+                        <option value="@so.Id">@so.SONumber — @so.CustomerName</option>
                     }
                 </select>
-                <ValidationMessage For="() => _model.ProductId" />
+                <ValidationMessage For="() => _model.SalesOrderId" />
             </div>
 
             <div class="form-group">
-                <label class="form-label">Sales Order Number</label>
-                <InputText class="form-input" @bind-Value="_model.SalesOrderNumber" placeholder="e.g. SO-2026-001" />
+                <label class="form-label">Product <span class="required">*</span></label>
+                <select class="form-select" @bind="_model.ProductId" disabled="@(!_soLines.Any())">
+                    <option value="">— Select product —</option>
+                    @foreach (var line in _soLines)
+                    {
+                        <option value="@line.ProductId">
+                            @line.ProductName (@line.SKU) — @(line.OrderedQuantity - line.DispatchedQuantity) remaining
+                        </option>
+                    }
+                </select>
+                <ValidationMessage For="() => _model.ProductId" />
             </div>
 
             <div class="form-group">
@@ -105,12 +115,13 @@
 
 @code {
     private DispatchStockFormModel _model = new();
+    private List<SalesOrderSummaryDto> _salesOrders = [];
+    private List<SalesOrderLineDetailDto> _soLines = [];
     private List<WarehouseDto> _warehouses = [];
-    private List<ProductSummaryDto> _products = [];
     private List<LocationDto> _locations = [];
 
+    private bool _loadingSalesOrders = true;
     private bool _loadingWarehouses = true;
-    private bool _loadingDropdowns = true;
     private bool _submitting;
     private string? _error;
     private string? _successMessage;
@@ -119,17 +130,51 @@
     {
         try
         {
-            _warehouses = await WarehouseService.GetAllWarehousesAsync();
-            _products = await ProductService.GetAllProductsAsync();
+            var salesOrdersTask = SalesOrderService.GetAllSalesOrdersAsync();
+            var warehousesTask = WarehouseService.GetAllWarehousesAsync();
+            await Task.WhenAll(salesOrdersTask, warehousesTask);
+
+            // Only show confirmed or partially dispatched SOs
+            _salesOrders = salesOrdersTask.Result
+                .Where(so => so.Status == "Confirmed" || so.Status == "PartiallyDispatched")
+                .ToList();
+
+            _warehouses = warehousesTask.Result;
         }
         catch (Exception ex)
         {
-            _error = $"Failed to load warehouses: {ex.Message}";
+            _error = $"Failed to load form data: {ex.Message}";
         }
         finally
         {
+            _loadingSalesOrders = false;
             _loadingWarehouses = false;
-            _loadingDropdowns = false;
+        }
+    }
+
+    private async Task OnSalesOrderChanged(ChangeEventArgs e)
+    {
+        _soLines = [];
+        _model.SalesOrderId = Guid.Empty;
+        _model.ProductId = Guid.Empty;
+
+        if (Guid.TryParse(e.Value?.ToString(), out var soId))
+        {
+            try
+            {
+                var so = await SalesOrderService.GetSalesOrderByIdAsync(soId);
+
+                // Only show lines that still have items left to dispatch
+                _soLines = so.OrderLines
+                    .Where(l => l.OrderedQuantity - l.DispatchedQuantity > 0)
+                    .ToList();
+
+                _model.SalesOrderId = soId;
+            }
+            catch (Exception ex)
+            {
+                _error = $"Failed to load sales order lines: {ex.Message}";
+            }
         }
     }
 
@@ -153,11 +198,25 @@
 
         try
         {
+            if (_model.SalesOrderId == Guid.Empty)
+                throw new Exception("Please select a sales order.");
+
+            if (_model.ProductId == Guid.Empty)
+                throw new Exception("Please select a product.");
+
             if (!Guid.TryParse(_model.LocationId, out var locationId))
                 throw new Exception("Please select a location.");
 
+            var soLine = _soLines.FirstOrDefault(l => l.ProductId == _model.ProductId);
+            var soNumber = _salesOrders.FirstOrDefault(so => so.Id == _model.SalesOrderId)?.SONumber;
+
             var request = new DispatchStockRequest(
-                _model.ProductId, locationId, _model.Quantity, _model.SalesOrderNumber, _model.Notes);
+                _model.ProductId,
+                locationId,
+                _model.SalesOrderId,
+                _model.Quantity,
+                _model.Notes
+            );
 
             var transactionId = await StockService.DispatchStockAsync(request);
             _successMessage = $"Stock dispatched successfully. Transaction ID: {transactionId}";
@@ -176,13 +235,14 @@
     private void Reset()
     {
         _model = new();
+        _soLines = [];
         _locations = [];
     }
 
     private class DispatchStockFormModel
     {
+        public Guid SalesOrderId { get; set; }
         [Required] public Guid ProductId { get; set; }
-        public string? SalesOrderNumber { get; set; }
         [Required] public string LocationId { get; set; } = string.Empty;
         [Range(1, int.MaxValue, ErrorMessage = "Quantity must be at least 1.")]
         public int Quantity { get; set; } = 1;

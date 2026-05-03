@@ -11,7 +11,7 @@ public record ReceiveStockRequest(
 public record DispatchStockRequest(
     Guid ProductId,
     Guid LocationId,
+    Guid SalesOrderId,
     int Quantity,
-    string? SalesOrderNumber,
     string? Notes
 );
