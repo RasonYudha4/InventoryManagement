@@ -22,6 +22,7 @@ public class Product : BaseEntity
     public Supplier Supplier {get; set;} = null!;
 
     public ICollection<StockLevel> StockLevels {get; set;} = [];
+    public ICollection<SalesOrderLine> SalesOrderLines {get; set;} = [];
     public ICollection<PurchaseOrderLine> PurchaseOrderLines {get; set;} = [];
     public ICollection<StockTransaction> Transactions {get; set;} = [];
     

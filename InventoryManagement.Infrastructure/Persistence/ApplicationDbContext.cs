@@ -29,6 +29,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplica
     public DbSet<Location> Locations => Set<Location>();
     public DbSet<StockLevel> StockLevels => Set<StockLevel>();
     public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
+    public DbSet<SalesOrder> SalesOrders => Set<SalesOrder>();
     public DbSet<StockTransaction> StockTransactions => Set<StockTransaction>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
@@ -132,7 +133,15 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplica
         builder.Entity<Category>().HasQueryFilter(c => !c.IsDeleted);
         builder.Entity<Supplier>().HasQueryFilter(s => !s.IsDeleted);
         builder.Entity<Warehouse>().HasQueryFilter(w => !w.IsDeleted);
+        builder.Entity<SalesOrder>().HasQueryFilter(so => !so.IsDeleted);
     
+        // Don't let deleting a Product delete historical SO Lines
+        builder.Entity<SalesOrderLine>()
+            .HasOne(sol => sol.Product)
+            .WithMany(p => p.SalesOrderLines)
+            .HasForeignKey(sol => sol.ProductId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // 1. Don't let deleting a Product delete historical PO Lines
         builder.Entity<PurchaseOrderLine>()
             .HasOne(pol => pol.Product)
